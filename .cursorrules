@@ -1,0 +1,37 @@
+# Project: 약사 상담 플랫폼 (모바일 웹)
+
+## 컨텍스트
+
+- 이 프로젝트는 **면허 인증 약사**의 비동기 복약상담/Q&A를 제공하는 모바일 웹 서비스다.
+- 작업 시 가능하면 항상 `docs/PRD.md`, `docs/USER_FLOW.md`, `docs/PHARMACIST_FLOW.md`, `docs/DB_SCHEMA.md`, `docs/API_SPEC.md`, `docs/MVP_SCOPE.md`, `docs/CONVENTIONS.md`를 먼저 참고한다.
+- UI 텍스트는 기본 **한국어** 사용.
+- **모바일 퍼스트**로 설계하고, 데스크탑은 이후 확장한다.
+
+## 기술 스택
+
+- Next.js 14 (App Router) + TypeScript
+- Tailwind CSS + (추후) shadcn/ui
+- Zustand, TanStack Query
+- React Hook Form + Zod
+- Supabase (Auth + DB + Storage)
+
+## 폴더 구조
+
+- `app/` — 페이지, 레이아웃, Route Handlers
+- `components/` — 공통 UI 컴포넌트
+- `lib/` — 유틸, Supabase 클라이언트, 스토어 등
+- `docs/` — 제품/기술 문서
+- (추가 예정) `features/` — 기능 단위 모듈, `hooks/` — 커스텀 훅
+
+## 코딩 규칙
+
+- TypeScript strict 모드 유지.
+- 컴포넌트는 함수형 + arrow function.
+- 파일명: kebab-case, 컴포넌트명: PascalCase.
+- 서버 상태는 TanStack Query, 클라이언트 UI 상태는 Zustand 사용.
+- 폼/밸리데이션은 React Hook Form + Zod 사용.
+- 서버/클라이언트 API 응답은 가능하면 Zod로 검증.
+- 서버 컴포넌트 우선 사용, `\"use client\"`는 필요한 곳에만.
+- 스타일링은 Tailwind, 공통 컴포넌트는 shadcn/ui 기반으로 통일.
+- 에러 메시지는 사용자에게 **한국어로 명확하게** 보여준다.
+
