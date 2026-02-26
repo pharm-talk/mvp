@@ -1,26 +1,28 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { QueryProvider } from "./providers/query-provider";
 
 export const metadata: Metadata = {
-  title: "Pharm Talk",
-  description: "모바일 퍼스트 헬스케어 서비스",
+  title: "팜톡 - 면허 인증 약사 상담",
+  description: "복용 중인 약과 영양제, 면허 인증 약사에게 물어보세요.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: "cover",
+  themeColor: "#FFFFFF",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="ko">
-      <body className="min-h-screen bg-white text-slate-900 antialiased">
-        <QueryProvider>
-          <div className="mx-auto max-w-md md:max-w-lg lg:max-w-xl px-4">
-            {children}
-          </div>
-        </QueryProvider>
-      </body>
+      <body className="safe-top">{children}</body>
     </html>
   );
 }
