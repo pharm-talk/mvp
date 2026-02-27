@@ -508,7 +508,7 @@ export default function PharmacistConsultationDetail() {
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   rows={8}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3.5 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 placeholder:leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3.5 text-base text-gray-900 placeholder:text-gray-300 placeholder:leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none"
                 />
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-gray-300">{answer.length}자</p>
@@ -664,7 +664,7 @@ export default function PharmacistConsultationDetail() {
                   value={followupAnswer}
                   onChange={(e) => setFollowupAnswer(e.target.value)}
                   rows={5}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3.5 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3.5 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none"
                 />
 
                 <button

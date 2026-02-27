@@ -9,9 +9,9 @@ import {
   Pill,
   ChevronDown,
   ChevronUp,
+  Camera,
   ImagePlus,
   Check,
-  Sparkles,
   FileText,
   Loader2,
   MessageCircle,
@@ -99,9 +99,11 @@ export default function NewConsultationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const albumInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
+  const [showPhotoSheet, setShowPhotoSheet] = useState(false);
 
   const initialType: ConsultType =
     searchParams.get("type") === "supplement" ? "supplement" : "medication";
@@ -292,16 +294,13 @@ export default function NewConsultationContent() {
   };
 
   useEffect(() => {
-    if (chatEndRef.current) {
+    // 메시지가 2개 이상일 때만 스크롤 (첫 진입 시 상단 유지)
+    if (chatEndRef.current && chatMessages.length > 2) {
       chatEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [chatMessages, chatLoading]);
 
-  useEffect(() => {
-    if (showAssist && chatInputRef.current) {
-      chatInputRef.current.focus();
-    }
-  }, [showAssist]);
+  // 모바일에서 키보드가 바로 올라오면 화면이 밀리므로 auto-focus 하지 않음
 
   /* ── 이미지 + AI 분석 ── */
   const [images, setImages] = useState<File[]>([]);
@@ -791,7 +790,7 @@ export default function NewConsultationContent() {
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={4}
-            className="w-full rounded-2xl border border-gray-200 px-4 py-3.5 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 placeholder:leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none"
+            className="w-full rounded-2xl border border-gray-200 px-4 py-3.5 text-base text-gray-900 placeholder:text-gray-300 placeholder:leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none"
           />
           <p className="text-xs text-gray-300 mt-1.5 text-right">{content.length}자</p>
         </div>
@@ -829,7 +828,7 @@ export default function NewConsultationContent() {
             {images.length < 5 && (
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => setShowPhotoSheet(true)}
                 className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 active:bg-gray-50 transition-colors"
               >
                 <ImagePlus className="w-5 h-5 text-gray-300" />
@@ -838,7 +837,15 @@ export default function NewConsultationContent() {
             )}
           </div>
           <input
-            ref={fileInputRef}
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleImageAdd}
+            className="hidden"
+          />
+          <input
+            ref={albumInputRef}
             type="file"
             accept="image/*"
             multiple
@@ -915,6 +922,53 @@ export default function NewConsultationContent() {
         <div className="h-6" />
       </main>
 
+      {/* ── 사진 선택 바텀시트 ── */}
+      {showPhotoSheet && (
+        <div
+          className="fixed inset-0 z-50 bg-black/30"
+          onClick={() => setShowPhotoSheet(false)}
+        >
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl safe-bottom"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-2" />
+            <div className="px-5 pb-3">
+              <p className="text-base font-bold text-gray-900 mb-4">사진 추가</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPhotoSheet(false);
+                  cameraInputRef.current?.click();
+                }}
+                className="w-full h-[3.25rem] rounded-xl bg-gray-50 text-left px-4 flex items-center gap-3 active:bg-gray-100 transition-colors mb-2"
+              >
+                <Camera className="w-5 h-5 text-gray-600" />
+                <span className="text-[0.9375rem] font-medium text-gray-900">카메라로 촬영</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPhotoSheet(false);
+                  albumInputRef.current?.click();
+                }}
+                className="w-full h-[3.25rem] rounded-xl bg-gray-50 text-left px-4 flex items-center gap-3 active:bg-gray-100 transition-colors mb-2"
+              >
+                <ImagePlus className="w-5 h-5 text-gray-600" />
+                <span className="text-[0.9375rem] font-medium text-gray-900">앨범에서 선택</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPhotoSheet(false)}
+                className="w-full h-12 rounded-xl text-gray-400 font-medium text-sm mt-1"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── AI 질문 도우미 오버레이 ── */}
       {showAssist && (
         <div className="fixed inset-0 z-[100] flex flex-col bg-white">
@@ -946,7 +1000,7 @@ export default function NewConsultationContent() {
                   className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-[0.9375rem] leading-relaxed ${
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-base leading-relaxed ${
                       msg.role === "user"
                         ? "bg-brand text-white rounded-br-md"
                         : "bg-gray-100 text-gray-900 rounded-bl-md"
@@ -973,7 +1027,7 @@ export default function NewConsultationContent() {
             {suggestedContent && (
               <div className="mt-4 bg-brand-light border border-brand/10 rounded-2xl px-4 py-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-4 h-4 text-brand" />
+                  <Check className="w-4 h-4 text-brand" />
                   <p className="text-sm font-semibold text-brand">정리된 상담 내용</p>
                 </div>
                 <p
@@ -1036,7 +1090,7 @@ export default function NewConsultationContent() {
                   }
                 }}
                 placeholder="고민을 말해주세요..."
-                className="flex-1 h-10 rounded-full bg-gray-100 px-4 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="flex-1 h-11 rounded-full bg-gray-100 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/20"
               />
               <button
                 type="button"

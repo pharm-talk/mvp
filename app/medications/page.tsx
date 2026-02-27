@@ -15,7 +15,6 @@ import {
   Camera,
   ImagePlus,
   Loader2,
-  Sparkles,
   X,
 } from "lucide-react";
 
@@ -69,7 +68,9 @@ const FREQUENCY_OPTIONS = [
 export default function MedicationsPage() {
   const router = useRouter();
   const supabase = createClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const albumInputRef = useRef<HTMLInputElement>(null);
+  const [showPhotoSheet, setShowPhotoSheet] = useState(false);
 
   const [medications, setMedications] = useState<Medication[]>([]);
   const [loading, setLoading] = useState(true);
@@ -301,7 +302,7 @@ export default function MedicationsPage() {
             <div className="mb-6">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => setShowPhotoSheet(true)}
                 disabled={analyzing}
                 className="w-full h-14 rounded-2xl border-2 border-dashed border-brand/30 bg-brand-light/30 flex items-center justify-center gap-2.5 active:bg-brand-light/50 transition-all duration-150 disabled:opacity-50"
               >
@@ -318,18 +319,9 @@ export default function MedicationsPage() {
                     <span className="text-sm font-semibold text-brand">
                       사진으로 자동 입력
                     </span>
-                    <Sparkles className="w-4 h-4 text-brand/60" />
                   </>
                 )}
               </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleFileChange}
-                className="hidden"
-              />
               <p className="text-[0.6875rem] text-gray-400 text-center mt-1.5">
                 약 상자, 처방전, 영양제 라벨 등을 촬영하세요
               </p>
@@ -376,7 +368,7 @@ export default function MedicationsPage() {
             placeholder="예: 타이레놀, 비타민D"
             value={formName}
             onChange={(e) => setFormName(e.target.value)}
-            className="w-full h-12 rounded-xl border border-gray-200 px-4 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 mb-6"
+            className="w-full h-12 rounded-xl border border-gray-200 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 mb-6"
           />
 
           {/* 복용량 */}
@@ -388,7 +380,7 @@ export default function MedicationsPage() {
             placeholder="예: 1정, 2캡슐, 1포"
             value={formDosage}
             onChange={(e) => setFormDosage(e.target.value)}
-            className="w-full h-12 rounded-xl border border-gray-200 px-4 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 mb-6"
+            className="w-full h-12 rounded-xl border border-gray-200 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 mb-6"
           />
 
           {/* 복용 주기 */}
@@ -426,7 +418,7 @@ export default function MedicationsPage() {
             value={formNotes}
             onChange={(e) => setFormNotes(e.target.value)}
             rows={3}
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none"
+            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none"
           />
 
           {/* 저장 버튼 */}
@@ -447,12 +439,19 @@ export default function MedicationsPage() {
   /* ━━━ 메인 리스트 ━━━ */
   return (
     <div className="min-h-dvh bg-surface">
-      {/* 숨겨진 파일 인풋 (빈 상태에서도 사진 분석 가능) */}
+      {/* 숨겨진 파일 인풋 */}
       <input
-        ref={fileInputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      <input
+        ref={albumInputRef}
+        type="file"
+        accept="image/*"
         onChange={handleFileChange}
         className="hidden"
       />
@@ -523,13 +522,12 @@ export default function MedicationsPage() {
             <div className="flex flex-col gap-3 w-full max-w-[16rem]">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => setShowPhotoSheet(true)}
                 disabled={analyzing}
                 className="inline-flex items-center justify-center gap-2 h-12 bg-brand text-white font-semibold text-[0.9375rem] rounded-full active:brightness-95 transition-all duration-150 disabled:opacity-50"
               >
                 <Camera className="w-5 h-5" />
                 사진으로 추가
-                <Sparkles className="w-4 h-4 opacity-60" />
               </button>
               <button
                 type="button"
@@ -610,13 +608,12 @@ export default function MedicationsPage() {
             <div className="px-5 mt-4 space-y-2.5">
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => setShowPhotoSheet(true)}
                 disabled={analyzing}
                 className="w-full h-12 rounded-2xl bg-brand-light/50 text-brand font-semibold text-sm flex items-center justify-center gap-2 active:bg-brand-light transition-all duration-150 disabled:opacity-50"
               >
                 <Camera className="w-4 h-4" />
                 사진으로 추가
-                <Sparkles className="w-3.5 h-3.5 opacity-60" />
               </button>
               <button
                 type="button"
@@ -630,6 +627,53 @@ export default function MedicationsPage() {
           </>
         )}
       </main>
+
+      {/* 사진 선택 바텀시트 */}
+      {showPhotoSheet && (
+        <div
+          className="fixed inset-0 z-50 bg-black/30"
+          onClick={() => setShowPhotoSheet(false)}
+        >
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl safe-bottom"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mt-3 mb-2" />
+            <div className="px-5 pb-3">
+              <p className="text-base font-bold text-gray-900 mb-4">사진 추가</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPhotoSheet(false);
+                  cameraInputRef.current?.click();
+                }}
+                className="w-full h-[3.25rem] rounded-xl bg-gray-50 text-left px-4 flex items-center gap-3 active:bg-gray-100 transition-colors mb-2"
+              >
+                <Camera className="w-5 h-5 text-gray-600" />
+                <span className="text-[0.9375rem] font-medium text-gray-900">카메라로 촬영</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPhotoSheet(false);
+                  albumInputRef.current?.click();
+                }}
+                className="w-full h-[3.25rem] rounded-xl bg-gray-50 text-left px-4 flex items-center gap-3 active:bg-gray-100 transition-colors mb-2"
+              >
+                <ImagePlus className="w-5 h-5 text-gray-600" />
+                <span className="text-[0.9375rem] font-medium text-gray-900">앨범에서 선택</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPhotoSheet(false)}
+                className="w-full h-12 rounded-xl text-gray-400 font-medium text-sm mt-1"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 삭제 확인 오버레이 */}
       {deleting && (
@@ -680,7 +724,7 @@ function AiResultsScreen({
       <div className="max-w-lg mx-auto px-5 pt-5 pb-8">
         <div className="flex items-center gap-2.5 mb-4">
           <div className="w-10 h-10 rounded-xl bg-brand-light flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-brand" />
+            <Check className="w-5 h-5 text-brand" />
           </div>
           <div>
             <p className="text-sm font-bold text-gray-900">

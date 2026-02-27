@@ -3,16 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import {
-  ArrowLeft,
-  Clock,
-  CheckCircle2,
-  Send,
-  Pill,
-  Stethoscope,
-  AlertTriangle,
-  ClipboardList,
-} from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle2, Pill, AlertTriangle } from "lucide-react";
 
 const SupplementBottle = ({ className }: { className?: string }) => (
   <svg
@@ -173,7 +164,10 @@ export default function ConsultationDetailPage() {
         {/* 내 질문 */}
         <div className="bg-white rounded-2xl p-4 shadow-card mb-3">
           <p className="text-xs font-semibold text-gray-400 mb-2">내 질문</p>
-          <p className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap">
+          <p
+            className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap"
+            style={{ wordBreak: "keep-all" }}
+          >
             {consultation.content}
           </p>
         </div>
@@ -209,40 +203,29 @@ export default function ConsultationDetailPage() {
         {/* 대기 중 안내 */}
         {consultation.status === "pending" && (
           <div className="bg-amber-50 rounded-2xl p-5 text-center mb-3">
-            <Clock className="w-8 h-8 text-amber-400 mx-auto mb-2" />
             <p className="text-sm font-semibold text-amber-700 mb-1">
               약사 답변을 기다리고 있어요
             </p>
             <p className="text-xs text-amber-600/70">
-              평균 12시간 이내에 답변이 도착해요.
+              보통 12시간 이내에 답변이 도착합니다
             </p>
           </div>
         )}
 
-        {/* 약사 답변 - 보고서식 */}
+        {/* 약사 답변 */}
         {consultation.answer && (
-          <div className="mb-3 space-y-3">
-            {/* 보고서 헤더 */}
-            <div className="bg-white rounded-2xl p-4 shadow-card">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-brand flex items-center justify-center">
-                    <Stethoscope className="w-4 h-4 text-white" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">약사 상담 결과</p>
-                    {consultation.answered_at && (
-                      <p className="text-xs text-gray-300">
-                        {formatDate(consultation.answered_at)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <span className="text-xs font-semibold text-brand bg-brand-light px-2.5 py-1 rounded-full">
-                  답변 완료
-                </span>
+          <div className="bg-white rounded-2xl shadow-card overflow-hidden mb-3">
+            <div className="px-4 py-3 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-gray-900">약사 답변</p>
+                {consultation.answered_at && (
+                  <span className="text-xs text-gray-300">
+                    {formatDate(consultation.answered_at)}
+                  </span>
+                )}
               </div>
-              <div className="h-px bg-gray-100 mb-3" />
+            </div>
+            <div className="px-4 py-4">
               <AnswerReport content={consultation.answer} />
             </div>
           </div>
@@ -254,46 +237,56 @@ export default function ConsultationDetailPage() {
             <p className="text-xs font-semibold text-gray-400 mb-2">
               추가 질문
             </p>
-            <p className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap">
+            <p
+              className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap"
+              style={{ wordBreak: "keep-all" }}
+            >
               {consultation.followup_question}
             </p>
           </div>
         )}
 
+        {/* 추가 답변 */}
         {consultation.followup_answer && (
-          <div className="bg-white rounded-2xl p-4 shadow-card mb-3 border-l-4 border-brand">
-            <p className="text-xs font-semibold text-brand mb-2">
-              추가 답변
-            </p>
-            <p className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap">
-              {consultation.followup_answer}
-            </p>
+          <div className="bg-white rounded-2xl shadow-card overflow-hidden mb-3">
+            <div className="px-4 py-3 border-b border-gray-100">
+              <p className="text-sm font-bold text-gray-900">추가 답변</p>
+            </div>
+            <div className="px-4 py-4">
+              <p
+                className="text-[0.9375rem] text-gray-700 leading-relaxed whitespace-pre-wrap"
+                style={{ wordBreak: "keep-all" }}
+              >
+                {consultation.followup_answer}
+              </p>
+            </div>
           </div>
         )}
 
-        {/* 추가 질문 입력 (1회) */}
+        {/* 추가 질문 입력 */}
         {canFollowup && (
-          <div className="mt-4">
-            <p className="text-xs text-gray-400 mb-2">
-              추가 질문 1회 가능해요.
+          <div className="bg-white rounded-2xl p-4 shadow-card mt-1">
+            <p className="text-sm font-semibold text-gray-900 mb-1">
+              추가로 궁금한 점이 있나요?
             </p>
-            <div className="flex gap-2">
-              <textarea
-                placeholder="추가로 궁금한 점을 입력하세요"
-                value={followup}
-                onChange={(e) => setFollowup(e.target.value)}
-                rows={2}
-                className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none"
-              />
-              <button
-                type="button"
-                onClick={handleFollowup}
-                disabled={!followup.trim() || submittingFollowup}
-                className="w-12 h-12 rounded-xl bg-brand flex items-center justify-center active:brightness-95 transition-all duration-150 disabled:opacity-40 self-end"
-              >
-                <Send className="w-5 h-5 text-white" />
-              </button>
-            </div>
+            <p className="text-xs text-gray-400 mb-3">
+              이 상담에 대해 1회 추가 질문할 수 있어요
+            </p>
+            <textarea
+              placeholder="궁금한 점을 작성해주세요"
+              value={followup}
+              onChange={(e) => setFollowup(e.target.value)}
+              rows={3}
+              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none mb-3"
+            />
+            <button
+              type="button"
+              onClick={handleFollowup}
+              disabled={!followup.trim() || submittingFollowup}
+              className="w-full h-12 rounded-xl bg-brand text-white font-semibold text-[0.9375rem] flex items-center justify-center active:brightness-95 transition-all duration-150 disabled:opacity-40"
+            >
+              {submittingFollowup ? "전송 중..." : "추가 질문 보내기"}
+            </button>
           </div>
         )}
       </main>
@@ -301,16 +294,14 @@ export default function ConsultationDetailPage() {
   );
 }
 
-/* ── 약사 답변 보고서식 파싱 ── */
+/* ── 약사 답변 본문 파싱 ── */
 function AnswerReport({ content }: { content: string }) {
-  // 섹션 구분: [제목] 또는 **제목** 또는 # 제목 패턴으로 분리
   const sectionPattern = /(?:^|\n)(?:\[(.+?)\]|#{1,3}\s+(.+?)|[*]{2}(.+?)[*]{2})\s*\n/g;
   const sections: { title: string; body: string }[] = [];
 
   let match;
   const titles: { title: string; index: number }[] = [];
 
-  // 모든 섹션 헤더 위치 수집
   while ((match = sectionPattern.exec(content)) !== null) {
     titles.push({
       title: match[1] || match[2] || match[3],
@@ -319,12 +310,11 @@ function AnswerReport({ content }: { content: string }) {
   }
 
   if (titles.length === 0) {
-    // 섹션 구분이 없는 일반 텍스트 → 줄바꿈 기준으로 문단 분리
     const paragraphs = content.split(/\n\n+/).filter((p) => p.trim());
     if (paragraphs.length <= 1) {
       return (
         <p
-          className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap"
+          className="text-[0.9375rem] text-gray-700 leading-[1.8] whitespace-pre-wrap"
           style={{ wordBreak: "keep-all" }}
         >
           {content}
@@ -334,31 +324,29 @@ function AnswerReport({ content }: { content: string }) {
     return (
       <div className="space-y-4">
         {paragraphs.map((para, i) => {
-          // 줄바꿈으로 시작하는 리스트 감지
           const lines = para.split("\n").filter((l) => l.trim());
           const isList = lines.length > 1 && lines.every((l) => /^[-·•]/.test(l.trim()));
           if (isList) {
             return (
-              <ul key={i} className="space-y-1.5">
+              <ul key={i} className="space-y-2 pl-1">
                 {lines.map((line, j) => (
-                  <li key={j} className="flex gap-2 text-[0.9375rem] text-gray-900 leading-relaxed">
-                    <span className="text-brand mt-1 flex-shrink-0">·</span>
+                  <li key={j} className="flex gap-2.5 text-[0.9375rem] text-gray-700 leading-[1.8]">
+                    <span className="text-gray-300 mt-0.5 flex-shrink-0">·</span>
                     <span style={{ wordBreak: "keep-all" }}>{line.replace(/^[-·•]\s*/, "")}</span>
                   </li>
                 ))}
               </ul>
             );
           }
-          // 주의사항 감지
           const isWarning =
             para.includes("주의") || para.includes("금기") || para.includes("부작용");
           if (isWarning) {
             return (
-              <div key={i} className="bg-amber-50 rounded-xl px-3.5 py-3">
-                <div className="flex items-start gap-2">
+              <div key={i} className="bg-amber-50/80 rounded-xl px-4 py-3">
+                <div className="flex items-start gap-2.5">
                   <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" />
                   <p
-                    className="text-sm text-amber-800 leading-relaxed"
+                    className="text-sm text-amber-800 leading-[1.8]"
                     style={{ wordBreak: "keep-all" }}
                   >
                     {para}
@@ -370,7 +358,7 @@ function AnswerReport({ content }: { content: string }) {
           return (
             <p
               key={i}
-              className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap"
+              className="text-[0.9375rem] text-gray-700 leading-[1.8] whitespace-pre-wrap"
               style={{ wordBreak: "keep-all" }}
             >
               {para}
@@ -381,8 +369,6 @@ function AnswerReport({ content }: { content: string }) {
     );
   }
 
-  // 섹션이 있는 경우
-  // 첫 섹션 전 내용
   const beforeFirst = content.slice(0, titles[0].index).trim();
   if (beforeFirst) {
     sections.push({ title: "", body: beforeFirst });
@@ -395,63 +381,34 @@ function AnswerReport({ content }: { content: string }) {
     sections.push({ title: t.title, body });
   });
 
-  const SECTION_ICONS: Record<string, string> = {
-    답변: "answer",
-    요약: "summary",
-    주의: "warning",
-    금기: "warning",
-    부작용: "warning",
-    복용법: "guide",
-    권장: "guide",
-    추천: "guide",
-    참고: "info",
-  };
-
-  const getSectionType = (title: string) => {
-    for (const [keyword, type] of Object.entries(SECTION_ICONS)) {
-      if (title.includes(keyword)) return type;
-    }
-    return "default";
-  };
-
-  const sectionStyles: Record<string, string> = {
-    warning: "bg-amber-50 border-amber-200",
-    guide: "bg-brand-light border-brand/10",
-    info: "bg-gray-50 border-gray-200",
-    default: "bg-white border-gray-100",
-    answer: "bg-white border-gray-100",
-    summary: "bg-brand-light border-brand/10",
-  };
+  const getIsWarning = (title: string) =>
+    ["주의", "금기", "부작용"].some((k) => title.includes(k));
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-5">
       {sections.map((section, i) => {
-        const type = section.title ? getSectionType(section.title) : "default";
-        const style = sectionStyles[type] ?? sectionStyles.default;
+        const isWarning = section.title ? getIsWarning(section.title) : false;
+
+        if (isWarning) {
+          return (
+            <div key={i} className="bg-amber-50/80 rounded-xl px-4 py-3">
+              {section.title && (
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  <p className="text-sm font-bold text-amber-700">{section.title}</p>
+                </div>
+              )}
+              <SectionBody text={section.body} isWarning />
+            </div>
+          );
+        }
 
         return (
-          <div
-            key={i}
-            className={`rounded-xl border px-3.5 py-3 ${style}`}
-          >
+          <div key={i}>
             {section.title && (
-              <div className="flex items-center gap-1.5 mb-2">
-                {type === "warning" && (
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                )}
-                {type === "guide" && (
-                  <ClipboardList className="w-3.5 h-3.5 text-brand" />
-                )}
-                <p
-                  className={`text-sm font-bold ${
-                    type === "warning" ? "text-amber-700" : "text-gray-900"
-                  }`}
-                >
-                  {section.title}
-                </p>
-              </div>
+              <p className="text-sm font-bold text-gray-900 mb-2">{section.title}</p>
             )}
-            <ReportBody text={section.body} isWarning={type === "warning"} />
+            <SectionBody text={section.body} />
           </div>
         );
       })}
@@ -459,22 +416,21 @@ function AnswerReport({ content }: { content: string }) {
   );
 }
 
-function ReportBody({ text, isWarning }: { text: string; isWarning?: boolean }) {
+function SectionBody({ text, isWarning }: { text: string; isWarning?: boolean }) {
   const lines = text.split("\n").filter((l) => l.trim());
   const isList = lines.length > 1 && lines.some((l) => /^[-·•\d.]/.test(l.trim()));
 
+  const textColor = isWarning ? "text-amber-800" : "text-gray-700";
+
   if (isList) {
     return (
-      <ul className="space-y-1.5">
+      <ul className="space-y-2 pl-1">
         {lines.map((line, i) => (
-          <li key={i} className="flex gap-2 text-sm leading-relaxed">
-            <span className={`mt-0.5 flex-shrink-0 ${isWarning ? "text-amber-500" : "text-brand"}`}>
+          <li key={i} className={`flex gap-2.5 text-sm leading-[1.8] ${textColor}`}>
+            <span className={`mt-0.5 flex-shrink-0 ${isWarning ? "text-amber-400" : "text-gray-300"}`}>
               ·
             </span>
-            <span
-              className={isWarning ? "text-amber-800" : "text-gray-700"}
-              style={{ wordBreak: "keep-all" }}
-            >
+            <span style={{ wordBreak: "keep-all" }}>
               {line.replace(/^[-·•]\s*/, "").replace(/^\d+[.)]\s*/, "")}
             </span>
           </li>
@@ -485,9 +441,7 @@ function ReportBody({ text, isWarning }: { text: string; isWarning?: boolean }) 
 
   return (
     <p
-      className={`text-sm leading-relaxed whitespace-pre-wrap ${
-        isWarning ? "text-amber-800" : "text-gray-700"
-      }`}
+      className={`text-sm leading-[1.8] whitespace-pre-wrap ${textColor}`}
       style={{ wordBreak: "keep-all" }}
     >
       {text}

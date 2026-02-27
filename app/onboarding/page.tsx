@@ -244,7 +244,7 @@ export default function OnboardingPage() {
               onChange={(e) =>
                 setData((prev) => ({ ...prev, licenseNumber: e.target.value }))
               }
-              className="w-full h-12 rounded-xl border border-gray-200 px-4 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 mb-4"
+              className="w-full h-12 rounded-xl border border-gray-200 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 mb-4"
             />
             <p className="text-xs text-gray-300 leading-relaxed">
               입력하신 면허번호는 한국약사면허 인증에만 사용되며,
@@ -291,7 +291,7 @@ export default function OnboardingPage() {
                 const v = e.target.value.slice(0, 4);
                 setData((prev) => ({ ...prev, birthYear: v }));
               }}
-              className="w-full h-12 rounded-xl border border-gray-200 px-4 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 mb-6"
+              className="w-full h-12 rounded-xl border border-gray-200 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 mb-6"
             />
 
             <div className="flex gap-3">
@@ -303,7 +303,7 @@ export default function OnboardingPage() {
                   placeholder="170"
                   value={data.heightCm}
                   onChange={(e) => setData((prev) => ({ ...prev, heightCm: e.target.value }))}
-                  className="w-full h-12 rounded-xl border border-gray-200 px-4 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
+                  className="w-full h-12 rounded-xl border border-gray-200 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
                 />
               </div>
               <div className="flex-1">
@@ -314,7 +314,7 @@ export default function OnboardingPage() {
                   placeholder="65"
                   value={data.weightKg}
                   onChange={(e) => setData((prev) => ({ ...prev, weightKg: e.target.value }))}
-                  className="w-full h-12 rounded-xl border border-gray-200 px-4 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
+                  className="w-full h-12 rounded-xl border border-gray-200 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
                 />
               </div>
             </div>
@@ -384,7 +384,7 @@ export default function OnboardingPage() {
                     setCustomCondition("");
                   }
                 }}
-                className="flex-1 h-9 rounded-full border border-gray-200 px-4 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
+                className="flex-1 h-11 rounded-full border border-gray-200 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
               />
               <button
                 type="button"
@@ -456,7 +456,7 @@ export default function OnboardingPage() {
                     setCustomAllergy("");
                   }
                 }}
-                className="flex-1 h-9 rounded-full border border-gray-200 px-4 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
+                className="flex-1 h-11 rounded-full border border-gray-200 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
               />
               <button
                 type="button"

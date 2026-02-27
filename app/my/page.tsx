@@ -194,7 +194,7 @@ export default function MyPage() {
             placeholder="예: 1990"
             value={formBirthYear}
             onChange={(e) => setFormBirthYear(e.target.value.slice(0, 4))}
-            className="w-full h-12 rounded-xl border border-gray-200 px-4 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 mb-6"
+            className="w-full h-12 rounded-xl border border-gray-200 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 mb-6"
           />
 
           {/* 키 / 몸무게 */}
@@ -207,7 +207,7 @@ export default function MyPage() {
                 placeholder="170"
                 value={formHeight}
                 onChange={(e) => setFormHeight(e.target.value)}
-                className="w-full h-12 rounded-xl border border-gray-200 px-4 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
+                className="w-full h-12 rounded-xl border border-gray-200 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
               />
             </div>
             <div className="flex-1">
@@ -218,7 +218,7 @@ export default function MyPage() {
                 placeholder="65"
                 value={formWeight}
                 onChange={(e) => setFormWeight(e.target.value)}
-                className="w-full h-12 rounded-xl border border-gray-200 px-4 text-[0.9375rem] text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
+                className="w-full h-12 rounded-xl border border-gray-200 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
               />
             </div>
           </div>
@@ -273,7 +273,7 @@ export default function MyPage() {
                   setCustomCondition("");
                 }
               }}
-              className="flex-1 h-9 rounded-full border border-gray-200 px-4 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
+              className="flex-1 h-11 rounded-full border border-gray-200 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
             />
             <button
               type="button"
@@ -339,7 +339,7 @@ export default function MyPage() {
                   setCustomAllergy("");
                 }
               }}
-              className="flex-1 h-9 rounded-full border border-gray-200 px-4 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
+              className="flex-1 h-11 rounded-full border border-gray-200 px-4 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150"
             />
             <button
               type="button"
