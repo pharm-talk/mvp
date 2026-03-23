@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft, Clock, CheckCircle2, Pill, AlertTriangle } from "lucide-react";
+import { Robot, ShieldCheck } from "@phosphor-icons/react";
 
 const SupplementBottle = ({ className }: { className?: string }) => (
   <svg
@@ -36,6 +37,10 @@ interface Consultation {
   }> | null;
   answer: string | null;
   answered_at: string | null;
+  ai_report: string | null;
+  ai_report_at: string | null;
+  verified_by: string | null;
+  verified_at: string | null;
   followup_question: string | null;
   followup_answer: string | null;
   created_at: string;
@@ -47,6 +52,31 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   answered: { label: "답변 완료", color: "bg-brand-light text-brand" },
   closed: { label: "종료", color: "bg-gray-100 text-gray-500" },
 };
+
+interface AiReportSection {
+  title: string;
+  body: string;
+}
+
+function parseAiReport(report: string): AiReportSection[] {
+  const sections: AiReportSection[] = [];
+  const pattern = /\[(.+?)\]\s*\n([\s\S]*?)(?=\n\[|$)/g;
+  let match;
+
+  while ((match = pattern.exec(report)) !== null) {
+    sections.push({
+      title: match[1].trim(),
+      body: match[2].trim(),
+    });
+  }
+
+  // Fallback: if no sections parsed, return as single block
+  if (sections.length === 0 && report.trim()) {
+    sections.push({ title: "분석", body: report.trim() });
+  }
+
+  return sections;
+}
 
 export default function ConsultationDetailPage() {
   const router = useRouter();
@@ -126,9 +156,18 @@ export default function ConsultationDetailPage() {
   const canFollowup =
     consultation.status === "answered" && !consultation.followup_question;
 
+  const hasAiReport = !!consultation.ai_report;
+  const isVerified = !!consultation.verified_at;
+  const hasAnswer = !!consultation.answer;
+  const showWaiting = !hasAiReport && !hasAnswer;
+
+  const aiSections = hasAiReport
+    ? parseAiReport(consultation.ai_report as string)
+    : [];
+
   return (
     <div className="min-h-dvh bg-surface">
-      {/* 헤더 */}
+      {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
           <button
@@ -144,7 +183,7 @@ export default function ConsultationDetailPage() {
       </header>
 
       <main className="max-w-lg mx-auto px-5 pt-5 pb-10 safe-bottom">
-        {/* 상태 + 날짜 */}
+        {/* Status + Date */}
         <div className="flex items-center justify-between mb-4">
           <span
             className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${statusInfo.color}`}
@@ -161,7 +200,7 @@ export default function ConsultationDetailPage() {
           </span>
         </div>
 
-        {/* 내 질문 */}
+        {/* My question */}
         <div className="bg-white rounded-2xl p-4 shadow-card mb-3">
           <p className="text-xs font-semibold text-gray-400 mb-2">내 질문</p>
           <p
@@ -172,7 +211,7 @@ export default function ConsultationDetailPage() {
           </p>
         </div>
 
-        {/* 전달된 복용약 */}
+        {/* Medications snapshot */}
         {meds.length > 0 && (
           <div className="bg-white rounded-2xl p-4 shadow-card mb-3">
             <p className="text-xs font-semibold text-gray-400 mb-2">
@@ -200,38 +239,164 @@ export default function ConsultationDetailPage() {
           </div>
         )}
 
-        {/* 대기 중 안내 */}
-        {consultation.status === "pending" && (
-          <div className="bg-amber-50 rounded-2xl p-5 text-center mb-3">
-            <p className="text-sm font-semibold text-amber-700 mb-1">
-              약사 답변을 기다리고 있어요
-            </p>
-            <p className="text-xs text-amber-600/70">
-              보통 12시간 이내에 답변이 도착합니다
-            </p>
-          </div>
-        )}
-
-        {/* 약사 답변 */}
-        {consultation.answer && (
+        {/* Section 1: AI Analysis Report */}
+        {hasAiReport && (
           <div className="bg-white rounded-2xl shadow-card overflow-hidden mb-3">
-            <div className="px-4 py-3 border-b border-gray-100">
+            <div className="px-4 py-3 border-b border-gray-100 bg-blue-50/50">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-bold text-gray-900">약사 답변</p>
-                {consultation.answered_at && (
+                <div className="flex items-center gap-2">
+                  <Robot className="w-5 h-5 text-blue-500" weight="duotone" />
+                  <p className="text-sm font-bold text-gray-900">
+                    AI 분석 리포트
+                  </p>
+                </div>
+                {consultation.ai_report_at && (
                   <span className="text-xs text-gray-300">
-                    {formatDate(consultation.answered_at)}
+                    {formatDate(consultation.ai_report_at)}
                   </span>
                 )}
               </div>
             </div>
-            <div className="px-4 py-4">
-              <AnswerReport content={consultation.answer} />
+
+            <div className="px-4 py-4 space-y-4">
+              {aiSections.map((section, i) => {
+                const isWarning =
+                  section.title.includes("주의") ||
+                  section.title.includes("금기") ||
+                  section.title.includes("부작용");
+
+                const isSummary = section.title.includes("요약");
+
+                if (isSummary) {
+                  return (
+                    <div
+                      key={i}
+                      className="bg-blue-50 rounded-xl px-4 py-3"
+                    >
+                      <p className="text-xs font-bold text-blue-600 mb-1">
+                        {section.title}
+                      </p>
+                      <p
+                        className="text-sm text-blue-800 leading-relaxed"
+                        style={{ wordBreak: "keep-all" }}
+                      >
+                        {section.body}
+                      </p>
+                    </div>
+                  );
+                }
+
+                if (isWarning) {
+                  return (
+                    <div
+                      key={i}
+                      className="bg-amber-50/80 rounded-xl px-4 py-3"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-500" />
+                        <p className="text-xs font-bold text-amber-700">
+                          {section.title}
+                        </p>
+                      </div>
+                      <ReportSectionBody
+                        text={section.body}
+                        textColor="text-amber-800"
+                        dotColor="text-amber-400"
+                      />
+                    </div>
+                  );
+                }
+
+                return (
+                  <div key={i}>
+                    <p className="text-xs font-bold text-gray-600 mb-2">
+                      {section.title}
+                    </p>
+                    <ReportSectionBody
+                      text={section.body}
+                      textColor="text-gray-700"
+                      dotColor="text-gray-300"
+                    />
+                  </div>
+                );
+              })}
             </div>
+
+            {/* Pharmacist verification status */}
+            {!isVerified && (
+              <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                  <p className="text-xs text-gray-500">
+                    약사님이 검증 중이에요
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* 추가 질문 */}
+        {/* Section 2: Pharmacist Verification */}
+        {isVerified && (
+          <div className="bg-white rounded-2xl shadow-card overflow-hidden mb-3">
+            <div className="px-4 py-3 border-b border-gray-100 bg-brand-light/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck
+                    className="w-5 h-5 text-brand"
+                    weight="duotone"
+                  />
+                  <p className="text-sm font-bold text-brand">
+                    약사 검증 완료
+                  </p>
+                </div>
+                {consultation.verified_at && (
+                  <span className="text-xs text-gray-300">
+                    {formatDate(consultation.verified_at)}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* If pharmacist modified the report, show their answer */}
+            {hasAnswer &&
+              consultation.answer !== consultation.ai_report && (
+                <div className="px-4 py-4">
+                  <p className="text-xs font-semibold text-gray-400 mb-2">
+                    약사 수정 답변
+                  </p>
+                  <AnswerReport content={consultation.answer as string} />
+                </div>
+              )}
+
+            {/* If approved as-is, just show the badge */}
+            {hasAnswer &&
+              consultation.answer === consultation.ai_report && (
+                <div className="px-4 py-3">
+                  <p
+                    className="text-sm text-gray-600 leading-relaxed"
+                    style={{ wordBreak: "keep-all" }}
+                  >
+                    약사가 AI 분석 리포트의 내용을 확인하고 검증했어요.
+                  </p>
+                </div>
+              )}
+          </div>
+        )}
+
+        {/* Waiting status - no AI report, no answer */}
+        {showWaiting && consultation.status === "pending" && (
+          <div className="bg-amber-50 rounded-2xl p-5 text-center mb-3">
+            <p className="text-sm font-semibold text-amber-700 mb-1">
+              AI 분석 리포트를 생성 중이에요
+            </p>
+            <p className="text-xs text-amber-600/70">
+              곧 분석 결과를 확인할 수 있어요
+            </p>
+          </div>
+        )}
+
+        {/* Followup question */}
         {consultation.followup_question && (
           <div className="bg-white rounded-2xl p-4 shadow-card mb-3">
             <p className="text-xs font-semibold text-gray-400 mb-2">
@@ -246,7 +411,7 @@ export default function ConsultationDetailPage() {
           </div>
         )}
 
-        {/* 추가 답변 */}
+        {/* Followup answer */}
         {consultation.followup_answer && (
           <div className="bg-white rounded-2xl shadow-card overflow-hidden mb-3">
             <div className="px-4 py-3 border-b border-gray-100">
@@ -263,7 +428,7 @@ export default function ConsultationDetailPage() {
           </div>
         )}
 
-        {/* 추가 질문 입력 */}
+        {/* Followup input */}
         {canFollowup && (
           <div className="bg-white rounded-2xl p-4 shadow-card mt-1">
             <p className="text-sm font-semibold text-gray-900 mb-1">
@@ -294,9 +459,52 @@ export default function ConsultationDetailPage() {
   );
 }
 
-/* ── 약사 답변 본문 파싱 ── */
+/* -- Report section body renderer -- */
+function ReportSectionBody({
+  text,
+  textColor,
+  dotColor,
+}: {
+  text: string;
+  textColor: string;
+  dotColor: string;
+}) {
+  const lines = text.split("\n").filter((l) => l.trim());
+  const isList =
+    lines.length > 1 && lines.some((l) => /^[-·]/.test(l.trim()));
+
+  if (isList) {
+    return (
+      <ul className="space-y-1.5 pl-1">
+        {lines.map((line, i) => (
+          <li
+            key={i}
+            className={`flex gap-2.5 text-sm leading-[1.8] ${textColor}`}
+          >
+            <span className={`mt-0.5 flex-shrink-0 ${dotColor}`}>·</span>
+            <span style={{ wordBreak: "keep-all" }}>
+              {line.replace(/^[-·]\s*/, "")}
+            </span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <p
+      className={`text-sm leading-[1.8] whitespace-pre-wrap ${textColor}`}
+      style={{ wordBreak: "keep-all" }}
+    >
+      {text}
+    </p>
+  );
+}
+
+/* -- Answer report parser (for pharmacist modified answers) -- */
 function AnswerReport({ content }: { content: string }) {
-  const sectionPattern = /(?:^|\n)(?:\[(.+?)\]|#{1,3}\s+(.+?)|[*]{2}(.+?)[*]{2})\s*\n/g;
+  const sectionPattern =
+    /(?:^|\n)(?:\[(.+?)\]|#{1,3}\s+(.+?)|[*]{2}(.+?)[*]{2})\s*\n/g;
   const sections: { title: string; body: string }[] = [];
 
   let match;
@@ -325,21 +533,31 @@ function AnswerReport({ content }: { content: string }) {
       <div className="space-y-4">
         {paragraphs.map((para, i) => {
           const lines = para.split("\n").filter((l) => l.trim());
-          const isList = lines.length > 1 && lines.every((l) => /^[-·•]/.test(l.trim()));
+          const isList =
+            lines.length > 1 && lines.every((l) => /^[-·]/.test(l.trim()));
           if (isList) {
             return (
               <ul key={i} className="space-y-2 pl-1">
                 {lines.map((line, j) => (
-                  <li key={j} className="flex gap-2.5 text-[0.9375rem] text-gray-700 leading-[1.8]">
-                    <span className="text-gray-300 mt-0.5 flex-shrink-0">·</span>
-                    <span style={{ wordBreak: "keep-all" }}>{line.replace(/^[-·•]\s*/, "")}</span>
+                  <li
+                    key={j}
+                    className="flex gap-2.5 text-[0.9375rem] text-gray-700 leading-[1.8]"
+                  >
+                    <span className="text-gray-300 mt-0.5 flex-shrink-0">
+                      ·
+                    </span>
+                    <span style={{ wordBreak: "keep-all" }}>
+                      {line.replace(/^[-·]\s*/, "")}
+                    </span>
                   </li>
                 ))}
               </ul>
             );
           }
           const isWarning =
-            para.includes("주의") || para.includes("금기") || para.includes("부작용");
+            para.includes("주의") ||
+            para.includes("금기") ||
+            para.includes("부작용");
           if (isWarning) {
             return (
               <div key={i} className="bg-amber-50/80 rounded-xl px-4 py-3">
@@ -376,7 +594,8 @@ function AnswerReport({ content }: { content: string }) {
 
   titles.forEach((t, i) => {
     const headerEnd = content.indexOf("\n", t.index + 1);
-    const nextStart = i < titles.length - 1 ? titles[i + 1].index : content.length;
+    const nextStart =
+      i < titles.length - 1 ? titles[i + 1].index : content.length;
     const body = content.slice(headerEnd + 1, nextStart).trim();
     sections.push({ title: t.title, body });
   });
@@ -395,7 +614,9 @@ function AnswerReport({ content }: { content: string }) {
               {section.title && (
                 <div className="flex items-center gap-2 mb-2">
                   <AlertTriangle className="w-4 h-4 text-amber-500" />
-                  <p className="text-sm font-bold text-amber-700">{section.title}</p>
+                  <p className="text-sm font-bold text-amber-700">
+                    {section.title}
+                  </p>
                 </div>
               )}
               <SectionBody text={section.body} isWarning />
@@ -406,7 +627,9 @@ function AnswerReport({ content }: { content: string }) {
         return (
           <div key={i}>
             {section.title && (
-              <p className="text-sm font-bold text-gray-900 mb-2">{section.title}</p>
+              <p className="text-sm font-bold text-gray-900 mb-2">
+                {section.title}
+              </p>
             )}
             <SectionBody text={section.body} />
           </div>
@@ -416,9 +639,16 @@ function AnswerReport({ content }: { content: string }) {
   );
 }
 
-function SectionBody({ text, isWarning }: { text: string; isWarning?: boolean }) {
+function SectionBody({
+  text,
+  isWarning,
+}: {
+  text: string;
+  isWarning?: boolean;
+}) {
   const lines = text.split("\n").filter((l) => l.trim());
-  const isList = lines.length > 1 && lines.some((l) => /^[-·•\d.]/.test(l.trim()));
+  const isList =
+    lines.length > 1 && lines.some((l) => /^[-·\d.]/.test(l.trim()));
 
   const textColor = isWarning ? "text-amber-800" : "text-gray-700";
 
@@ -426,12 +656,17 @@ function SectionBody({ text, isWarning }: { text: string; isWarning?: boolean })
     return (
       <ul className="space-y-2 pl-1">
         {lines.map((line, i) => (
-          <li key={i} className={`flex gap-2.5 text-sm leading-[1.8] ${textColor}`}>
-            <span className={`mt-0.5 flex-shrink-0 ${isWarning ? "text-amber-400" : "text-gray-300"}`}>
+          <li
+            key={i}
+            className={`flex gap-2.5 text-sm leading-[1.8] ${textColor}`}
+          >
+            <span
+              className={`mt-0.5 flex-shrink-0 ${isWarning ? "text-amber-400" : "text-gray-300"}`}
+            >
               ·
             </span>
             <span style={{ wordBreak: "keep-all" }}>
-              {line.replace(/^[-·•]\s*/, "").replace(/^\d+[.)]\s*/, "")}
+              {line.replace(/^[-·]\s*/, "").replace(/^\d+[.)]\s*/, "")}
             </span>
           </li>
         ))}

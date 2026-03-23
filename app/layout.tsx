@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import ChatFab from "@/components/layout/ChatFab";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,7 +23,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body className="safe-top">{children}</body>
+      <body className="safe-top">
+        {children}
+        <ChatFab />
+      </body>
     </html>
   );
 }

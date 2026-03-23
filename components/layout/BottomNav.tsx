@@ -4,16 +4,16 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Home,
   BriefcaseMedical,
+  Users,
   MessagesSquare,
-  MapPin,
   User,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { icon: Home, label: "홈", href: "/" },
   { icon: BriefcaseMedical, label: "약 서랍", href: "/medications" },
-  { icon: MapPin, label: "약국", href: "/pharmacy" },
   { icon: MessagesSquare, label: "상담", href: "/consultations" },
+  { icon: Users, label: "가족", href: "/family" },
   { icon: User, label: "MY", href: "/my" },
 ] as const;
 

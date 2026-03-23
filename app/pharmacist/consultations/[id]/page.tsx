@@ -10,14 +10,13 @@ import {
   Pill,
   Send,
   User,
-  Wand2,
   Loader2,
-  FileText,
   PenLine,
   AlertTriangle,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import { Robot, ShieldCheck } from "@phosphor-icons/react";
 
 const SupplementBottle = ({ className }: { className?: string }) => (
   <svg
@@ -65,6 +64,10 @@ interface Consultation {
   medications_snapshot: MedSnapshot[] | null;
   answer: string | null;
   answered_at: string | null;
+  ai_report: string | null;
+  ai_report_at: string | null;
+  verified_by: string | null;
+  verified_at: string | null;
   followup_question: string | null;
   followup_answer: string | null;
   created_at: string;
@@ -78,11 +81,11 @@ export default function PharmacistConsultationDetail() {
 
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [answer, setAnswer] = useState("");
+  const [editedAnswer, setEditedAnswer] = useState("");
   const [followupAnswer, setFollowupAnswer] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
   const [showPatientInfo, setShowPatientInfo] = useState(true);
+  const [editMode, setEditMode] = useState(false);
 
   const fetchConsultation = useCallback(async () => {
     const { data } = await supabase
@@ -90,7 +93,13 @@ export default function PharmacistConsultationDetail() {
       .select("*")
       .eq("id", id)
       .single();
-    if (data) setConsultation(data);
+    if (data) {
+      setConsultation(data);
+      // Pre-fill editor with AI report for editing
+      if (data.ai_report && !data.verified_at) {
+        setEditedAnswer(data.ai_report);
+      }
+    }
     setLoading(false);
   }, [supabase, id]);
 
@@ -98,7 +107,7 @@ export default function PharmacistConsultationDetail() {
     fetchConsultation();
   }, [fetchConsultation]);
 
-  /* 상담 배정 */
+  /* Assign consultation */
   const handleAssign = async () => {
     const {
       data: { user },
@@ -119,34 +128,88 @@ export default function PharmacistConsultationDetail() {
     setSubmitting(false);
   };
 
-  /* 답변 제출 */
-  const handleAnswer = async () => {
-    if (!answer.trim() || !consultation) return;
+  /* Approve AI report as-is */
+  const handleApproveAsIs = async () => {
+    if (!consultation) return;
     setSubmitting(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setSubmitting(false);
+      return;
+    }
+
+    const now = new Date().toISOString();
     await supabase
       .from("consultations")
       .update({
-        answer: answer.trim(),
+        answer: consultation.ai_report,
         status: "answered",
-        answered_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        answered_at: now,
+        verified_by: user.id,
+        verified_at: now,
+        updated_at: now,
       })
       .eq("id", consultation.id);
+
     setConsultation((prev) =>
       prev
         ? {
             ...prev,
-            answer: answer.trim(),
+            answer: prev.ai_report,
             status: "answered",
-            answered_at: new Date().toISOString(),
+            answered_at: now,
+            verified_by: user.id,
+            verified_at: now,
           }
         : null
     );
-    setAnswer("");
     setSubmitting(false);
   };
 
-  /* 추가질문 답변 */
+  /* Submit edited answer */
+  const handleSubmitEdited = async () => {
+    if (!editedAnswer.trim() || !consultation) return;
+    setSubmitting(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setSubmitting(false);
+      return;
+    }
+
+    const now = new Date().toISOString();
+    await supabase
+      .from("consultations")
+      .update({
+        answer: editedAnswer.trim(),
+        status: "answered",
+        answered_at: now,
+        verified_by: user.id,
+        verified_at: now,
+        updated_at: now,
+      })
+      .eq("id", consultation.id);
+
+    setConsultation((prev) =>
+      prev
+        ? {
+            ...prev,
+            answer: editedAnswer.trim(),
+            status: "answered",
+            answered_at: now,
+            verified_by: user.id,
+            verified_at: now,
+          }
+        : null
+    );
+    setEditMode(false);
+    setSubmitting(false);
+  };
+
+  /* Followup answer */
   const handleFollowupAnswer = async () => {
     if (!followupAnswer.trim() || !consultation) return;
     setSubmitting(true);
@@ -165,50 +228,6 @@ export default function PharmacistConsultationDetail() {
     );
     setFollowupAnswer("");
     setSubmitting(false);
-  };
-
-  /* AI 도우미 */
-  const callAiAssist = async (
-    mode: "draft" | "polish" | "followup",
-    target: "answer" | "followup"
-  ) => {
-    if (!consultation) return;
-    setAiLoading(true);
-
-    const body: Record<string, unknown> = {
-      mode,
-      consultType: consultation.type,
-      question: consultation.content,
-      medications: consultation.medications_snapshot ?? [],
-      health: consultation.health_snapshot,
-    };
-
-    if (mode === "polish") {
-      body.draft = target === "answer" ? answer : followupAnswer;
-    }
-    if (mode === "followup") {
-      body.previousAnswer = consultation.answer;
-      body.followupQuestion = consultation.followup_question;
-    }
-
-    try {
-      const res = await fetch("/api/pharmacist-assist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (data.content) {
-        if (target === "answer") {
-          setAnswer(data.content);
-        } else {
-          setFollowupAnswer(data.content);
-        }
-      }
-    } catch {
-      // 실패 시 무시
-    }
-    setAiLoading(false);
   };
 
   const formatDate = (dateStr: string) => {
@@ -249,6 +268,9 @@ export default function PharmacistConsultationDetail() {
   const age = getAge(health?.birth_date);
   const isPending = consultation.status === "pending";
   const isAssigned = consultation.status === "assigned";
+  const isVerified = !!consultation.verified_at;
+  const hasAiReport = !!consultation.ai_report;
+  const needsVerification = hasAiReport && !isVerified && (isAssigned || isPending);
   const hasFollowup =
     consultation.followup_question && !consultation.followup_answer;
   const typeLabel = consultation.type === "supplement" ? "영양제" : "복약";
@@ -259,7 +281,7 @@ export default function PharmacistConsultationDetail() {
 
   return (
     <div className="min-h-dvh bg-gray-50">
-      {/* 헤더 */}
+      {/* Header */}
       <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
           <button
@@ -276,11 +298,13 @@ export default function PharmacistConsultationDetail() {
       </header>
 
       <main className="max-w-lg mx-auto pb-10 safe-bottom">
-        {/* ── 상단 요약 바 ── */}
+        {/* Summary bar */}
         <div className="bg-white px-5 py-3.5 border-b border-gray-100/60">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${typeColor}`}>
+              <span
+                className={`text-xs font-semibold px-2.5 py-1 rounded-full ${typeColor}`}
+              >
                 {typeLabel} 상담
               </span>
               <StatusBadge status={consultation.status} />
@@ -292,7 +316,7 @@ export default function PharmacistConsultationDetail() {
         </div>
 
         <div className="px-5 pt-4 space-y-3">
-          {/* ── 환자 정보 카드 (접기/펼치기) ── */}
+          {/* Patient info (collapsible) */}
           <div className="bg-white rounded-2xl shadow-card overflow-hidden">
             <button
               type="button"
@@ -304,10 +328,16 @@ export default function PharmacistConsultationDetail() {
                   <User className="w-4 h-4 text-gray-500" />
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-semibold text-gray-900">환자 정보</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    환자 정보
+                  </p>
                   <p className="text-xs text-gray-400">
                     {[
-                      health?.gender === "male" ? "남" : health?.gender === "female" ? "여" : null,
+                      health?.gender === "male"
+                        ? "남"
+                        : health?.gender === "female"
+                          ? "여"
+                          : null,
                       age ? `${age}세` : null,
                       meds.length > 0 ? `복용약 ${meds.length}개` : null,
                     ]
@@ -325,10 +355,11 @@ export default function PharmacistConsultationDetail() {
 
             {showPatientInfo && (
               <div className="px-4 pb-4 space-y-3 border-t border-gray-50">
-                {/* 건강 정보 */}
                 {health && (
                   <div className="pt-3">
-                    <p className="text-xs font-semibold text-gray-400 mb-2">건강 정보</p>
+                    <p className="text-xs font-semibold text-gray-400 mb-2">
+                      건강 정보
+                    </p>
                     <div className="flex flex-wrap gap-1.5">
                       {health.gender && (
                         <InfoChip
@@ -362,7 +393,6 @@ export default function PharmacistConsultationDetail() {
                   </div>
                 )}
 
-                {/* 복용약 */}
                 {meds.length > 0 && (
                   <div>
                     <p className="text-xs font-semibold text-gray-400 mb-2">
@@ -408,7 +438,7 @@ export default function PharmacistConsultationDetail() {
             )}
           </div>
 
-          {/* ── 상담 내용 ── */}
+          {/* Consultation content */}
           <div className="bg-white rounded-2xl shadow-card p-4">
             <p className="text-xs font-semibold text-gray-400 mb-2">
               환자 상담 내용
@@ -421,8 +451,40 @@ export default function PharmacistConsultationDetail() {
             </p>
           </div>
 
-          {/* ── 대기 중 → 상담 받기 ── */}
-          {isPending && (
+          {/* AI Report (read-only, prominent) */}
+          {hasAiReport && (
+            <div className="bg-white rounded-2xl shadow-card overflow-hidden border border-blue-100">
+              <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Robot
+                      className="w-5 h-5 text-blue-500"
+                      weight="duotone"
+                    />
+                    <p className="text-sm font-bold text-gray-900">
+                      AI 분석 리포트
+                    </p>
+                  </div>
+                  {consultation.ai_report_at && (
+                    <span className="text-xs text-gray-400">
+                      {formatDate(consultation.ai_report_at)}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="px-4 py-4">
+                <p
+                  className="text-sm text-gray-700 leading-[1.8] whitespace-pre-wrap"
+                  style={{ wordBreak: "keep-all" }}
+                >
+                  {consultation.ai_report}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Pending — assign */}
+          {isPending && !hasAiReport && (
             <div className="bg-white rounded-2xl shadow-card p-5 text-center">
               <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-3">
                 <Clock className="w-6 h-6 text-amber-400" />
@@ -444,96 +506,172 @@ export default function PharmacistConsultationDetail() {
             </div>
           )}
 
-          {/* ── 답변 작성 영역 ── */}
-          {isAssigned && !consultation.answer && (
+          {/* Pending with AI report — assign first */}
+          {isPending && hasAiReport && (
+            <div className="bg-white rounded-2xl shadow-card p-5 text-center">
+              <p className="text-sm font-semibold text-gray-900 mb-1">
+                AI 리포트가 생성되었어요
+              </p>
+              <p className="text-xs text-gray-400 mb-4">
+                상담을 받은 후 검증해주세요
+              </p>
+              <button
+                type="button"
+                onClick={handleAssign}
+                disabled={submitting}
+                className="w-full h-12 rounded-xl bg-brand text-white font-semibold text-[0.9375rem] flex items-center justify-center active:brightness-95 transition-all duration-150 disabled:opacity-60"
+              >
+                {submitting ? "배정 중..." : "이 상담 받기"}
+              </button>
+            </div>
+          )}
+
+          {/* Verification actions — only when assigned and AI report exists */}
+          {isAssigned && needsVerification && !editMode && (
             <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-              {/* 답변 작성 헤더 */}
               <div className="px-4 pt-4 pb-3 border-b border-gray-50">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-brand-light flex items-center justify-center">
-                    <PenLine className="w-4 h-4 text-brand" />
+                    <ShieldCheck
+                      className="w-4 h-4 text-brand"
+                      weight="duotone"
+                    />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-900">답변 작성</p>
+                    <p className="text-sm font-bold text-gray-900">
+                      AI 리포트 검증
+                    </p>
                     <p className="text-xs text-gray-400">
-                      직접 작성하거나, 초안을 뽑아서 수정하세요
+                      리포트를 검토하고 승인하거나 수정해주세요
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="p-4 space-y-3">
-                {/* AI 도우미 버튼들 */}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => callAiAssist("draft", "answer")}
-                    disabled={aiLoading}
-                    className="flex-1 h-10 rounded-xl bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 flex items-center justify-center gap-1.5 active:bg-gray-100 transition-colors duration-150 disabled:opacity-40"
-                  >
-                    {aiLoading && !answer ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Wand2 className="w-3.5 h-3.5" />
-                    )}
-                    초안 뽑기
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => callAiAssist("polish", "answer")}
-                    disabled={aiLoading || !answer.trim()}
-                    className="flex-1 h-10 rounded-xl bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 flex items-center justify-center gap-1.5 active:bg-gray-100 transition-colors duration-150 disabled:opacity-40"
-                  >
-                    {aiLoading && answer ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <FileText className="w-3.5 h-3.5" />
-                    )}
-                    다듬어주기
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleApproveAsIs}
+                  disabled={submitting}
+                  className="w-full h-12 rounded-xl bg-brand text-white font-semibold text-[0.9375rem] flex items-center justify-center gap-2 active:brightness-95 transition-all duration-150 disabled:opacity-60"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      처리 중...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      검증 완료
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditMode(true)}
+                  className="w-full h-12 rounded-xl bg-gray-100 text-gray-700 font-semibold text-[0.9375rem] flex items-center justify-center gap-2 active:bg-gray-200 transition-colors duration-150"
+                >
+                  <PenLine className="w-4 h-4" />
+                  수정 후 검증
+                </button>
+              </div>
+            </div>
+          )}
 
-                {aiLoading && (
-                  <div className="bg-brand-light rounded-xl px-3.5 py-3 flex items-center gap-2.5">
-                    <Loader2 className="w-4 h-4 text-brand animate-spin flex-shrink-0" />
-                    <p className="text-sm text-brand font-medium">
-                      답변을 준비하고 있어요...
+          {/* Edit mode */}
+          {editMode && (
+            <div className="bg-white rounded-2xl shadow-card overflow-hidden">
+              <div className="px-4 pt-4 pb-3 border-b border-gray-50">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-brand-light flex items-center justify-center">
+                    <PenLine className="w-4 h-4 text-brand" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">
+                      답변 수정
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      AI 리포트를 수정한 뒤 검증해주세요
                     </p>
                   </div>
-                )}
+                </div>
+              </div>
 
-                {/* 텍스트 영역 */}
+              <div className="p-4 space-y-3">
                 <textarea
-                  placeholder={`환자에게 전달할 답변을 작성해주세요.\n\n러프하게 적어도 '다듬어주기'로 깔끔하게 정리할 수 있어요.`}
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  rows={8}
+                  value={editedAnswer}
+                  onChange={(e) => setEditedAnswer(e.target.value)}
+                  rows={12}
                   className="w-full rounded-xl border border-gray-200 px-4 py-3.5 text-base text-gray-900 placeholder:text-gray-300 placeholder:leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none"
                 />
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-300">{answer.length}자</p>
-                  {answer.trim() && (
-                    <p className="text-xs text-gray-400">
-                      내용을 수정한 뒤 전송하세요
-                    </p>
-                  )}
+                  <p className="text-xs text-gray-300">
+                    {editedAnswer.length}자
+                  </p>
                 </div>
 
-                {/* 미리보기 (답변이 있을 때) */}
-                {answer.trim() && (
-                  <div className="border border-gray-100 rounded-xl p-3.5 bg-gray-50/50">
-                    <p className="text-xs font-semibold text-gray-400 mb-2">
-                      환자에게 보이는 형태
-                    </p>
-                    <AnswerPreview content={answer} />
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditMode(false)}
+                    className="flex-1 h-12 rounded-xl bg-gray-100 text-gray-600 font-semibold text-[0.9375rem] flex items-center justify-center active:bg-gray-200 transition-colors duration-150"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmitEdited}
+                    disabled={!editedAnswer.trim() || submitting}
+                    className="flex-1 h-12 rounded-xl bg-brand text-white font-semibold text-[0.9375rem] flex items-center justify-center gap-2 active:brightness-95 transition-all duration-150 disabled:opacity-40"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        전송 중...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        수정 후 검증
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
-                {/* 전송 버튼 */}
+          {/* Assigned but no AI report — allow direct answer */}
+          {isAssigned && !hasAiReport && !consultation.answer && (
+            <div className="bg-white rounded-2xl shadow-card overflow-hidden">
+              <div className="px-4 pt-4 pb-3 border-b border-gray-50">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-brand-light flex items-center justify-center">
+                    <PenLine className="w-4 h-4 text-brand" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">
+                      답변 작성
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      AI 리포트가 없어서 직접 작성해주세요
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 space-y-3">
+                <textarea
+                  placeholder="환자에게 전달할 답변을 작성해주세요."
+                  value={editedAnswer}
+                  onChange={(e) => setEditedAnswer(e.target.value)}
+                  rows={8}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3.5 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none"
+                />
                 <button
                   type="button"
-                  onClick={handleAnswer}
-                  disabled={!answer.trim() || submitting}
+                  onClick={handleSubmitEdited}
+                  disabled={!editedAnswer.trim() || submitting}
                   className="w-full h-12 rounded-xl bg-brand text-white font-semibold text-[0.9375rem] flex items-center justify-center gap-2 active:brightness-95 transition-all duration-150 disabled:opacity-40"
                 >
                   {submitting ? (
@@ -552,27 +690,41 @@ export default function PharmacistConsultationDetail() {
             </div>
           )}
 
-          {/* ── 내 답변 (이미 답변한 경우) ── */}
-          {consultation.answer && (
+          {/* Already answered / verified */}
+          {consultation.answer && isVerified && (
             <div className="bg-white rounded-2xl shadow-card p-4 border-l-4 border-brand">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold text-brand">내 답변</p>
-                {consultation.answered_at && (
+                <div className="flex items-center gap-2">
+                  <ShieldCheck
+                    className="w-4 h-4 text-brand"
+                    weight="duotone"
+                  />
+                  <p className="text-xs font-semibold text-brand">
+                    검증 완료된 답변
+                  </p>
+                </div>
+                {consultation.verified_at && (
                   <span className="text-xs text-gray-300">
-                    {formatDate(consultation.answered_at)}
+                    {formatDate(consultation.verified_at)}
                   </span>
                 )}
               </div>
-              <p
-                className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap"
-                style={{ wordBreak: "keep-all" }}
-              >
-                {consultation.answer}
-              </p>
+              {consultation.answer !== consultation.ai_report ? (
+                <p
+                  className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap"
+                  style={{ wordBreak: "keep-all" }}
+                >
+                  {consultation.answer}
+                </p>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  AI 리포트를 그대로 승인했습니다.
+                </p>
+              )}
             </div>
           )}
 
-          {/* ── 추가 질문 ── */}
+          {/* Followup question */}
           {consultation.followup_question && (
             <div className="bg-white rounded-2xl shadow-card p-4">
               <p className="text-xs font-semibold text-gray-400 mb-2">
@@ -587,10 +739,12 @@ export default function PharmacistConsultationDetail() {
             </div>
           )}
 
-          {/* 추가 답변 (이미 답변한 경우) */}
+          {/* Followup answer (already answered) */}
           {consultation.followup_answer && (
             <div className="bg-white rounded-2xl shadow-card p-4 border-l-4 border-brand">
-              <p className="text-xs font-semibold text-brand mb-2">추가 답변</p>
+              <p className="text-xs font-semibold text-brand mb-2">
+                추가 답변
+              </p>
               <p
                 className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap"
                 style={{ wordBreak: "keep-all" }}
@@ -600,7 +754,7 @@ export default function PharmacistConsultationDetail() {
             </div>
           )}
 
-          {/* ── 추가질문 답변 작성 ── */}
+          {/* Followup answer input */}
           {hasFollowup && (
             <div className="bg-white rounded-2xl shadow-card overflow-hidden">
               <div className="px-4 pt-4 pb-3 border-b border-gray-50">
@@ -620,45 +774,6 @@ export default function PharmacistConsultationDetail() {
               </div>
 
               <div className="p-4 space-y-3">
-                {/* AI 도우미 */}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => callAiAssist("followup", "followup")}
-                    disabled={aiLoading}
-                    className="flex-1 h-10 rounded-xl bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 flex items-center justify-center gap-1.5 active:bg-gray-100 transition-colors duration-150 disabled:opacity-40"
-                  >
-                    {aiLoading && !followupAnswer ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Wand2 className="w-3.5 h-3.5" />
-                    )}
-                    초안 뽑기
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => callAiAssist("polish", "followup")}
-                    disabled={aiLoading || !followupAnswer.trim()}
-                    className="flex-1 h-10 rounded-xl bg-gray-50 border border-gray-200 text-sm font-medium text-gray-700 flex items-center justify-center gap-1.5 active:bg-gray-100 transition-colors duration-150 disabled:opacity-40"
-                  >
-                    {aiLoading && followupAnswer ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <FileText className="w-3.5 h-3.5" />
-                    )}
-                    다듬어주기
-                  </button>
-                </div>
-
-                {aiLoading && (
-                  <div className="bg-brand-light rounded-xl px-3.5 py-3 flex items-center gap-2.5">
-                    <Loader2 className="w-4 h-4 text-brand animate-spin flex-shrink-0" />
-                    <p className="text-sm text-brand font-medium">
-                      답변을 준비하고 있어요...
-                    </p>
-                  </div>
-                )}
-
                 <textarea
                   placeholder="추가 질문에 대한 답변을 작성해주세요."
                   value={followupAnswer}
@@ -694,7 +809,7 @@ export default function PharmacistConsultationDetail() {
   );
 }
 
-/* ── 상태 뱃지 ── */
+/* -- Status badge -- */
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; style: string }> = {
     pending: { label: "대기 중", style: "bg-amber-50 text-amber-600" },
@@ -718,7 +833,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-/* ── 정보 칩 ── */
+/* -- Info chip -- */
 function InfoChip({
   label,
   variant = "default",
@@ -738,64 +853,5 @@ function InfoChip({
     >
       {label}
     </span>
-  );
-}
-
-/* ── 답변 미리보기 (환자에게 보이는 형태) ── */
-function AnswerPreview({ content }: { content: string }) {
-  const paragraphs = content.split(/\n\n+/).filter((p) => p.trim());
-
-  if (paragraphs.length <= 1) {
-    return (
-      <p
-        className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap"
-        style={{ wordBreak: "keep-all" }}
-      >
-        {content}
-      </p>
-    );
-  }
-
-  return (
-    <div className="space-y-2.5">
-      {paragraphs.map((para, i) => {
-        // [섹션 제목] 패턴 감지
-        const sectionMatch = para.match(/^\[(.+?)\]\s*([\s\S]*)$/);
-        if (sectionMatch) {
-          const title = sectionMatch[1];
-          const body = sectionMatch[2].trim();
-          const isWarning =
-            title.includes("주의") || title.includes("금기");
-
-          return (
-            <div key={i}>
-              <p
-                className={`text-xs font-bold mb-1 ${
-                  isWarning ? "text-amber-600" : "text-brand"
-                }`}
-              >
-                {title}
-              </p>
-              <p
-                className="text-sm text-gray-600 leading-relaxed"
-                style={{ wordBreak: "keep-all" }}
-              >
-                {body}
-              </p>
-            </div>
-          );
-        }
-
-        return (
-          <p
-            key={i}
-            className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap"
-            style={{ wordBreak: "keep-all" }}
-          >
-            {para}
-          </p>
-        );
-      })}
-    </div>
   );
 }

@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Send,
   Wand2,
+  Plus,
 } from "lucide-react";
 
 /* ── 영양제 통 아이콘 ── */
@@ -114,6 +115,17 @@ export default function NewConsultationContent() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [excludedHealthKeys, setExcludedHealthKeys] = useState<Set<string>>(new Set());
+  const [excludedMedIds, setExcludedMedIds] = useState<Set<string>>(new Set());
+
+  const toggleHealthKey = (key: string) => {
+    setExcludedHealthKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   /* ── 폼 ── */
   const [consultType, setConsultType] = useState<ConsultType>(initialType);
@@ -322,8 +334,9 @@ export default function NewConsultationContent() {
         .single(),
       supabase
         .from("medications")
-        .select("id, name, type, dosage, frequency")
+        .select("id, name, type, dosage, frequency, category")
         .eq("user_id", user.id)
+        .eq("archived", false)
         .order("created_at", { ascending: false }),
     ]);
 
@@ -499,16 +512,68 @@ export default function NewConsultationContent() {
 
     const fullContent = buildContent();
 
-    const { error } = await supabase.from("consultations").insert({
-      user_id: user.id,
-      type: consultType,
-      content: fullContent,
-      image_urls: uploadedUrls,
-      health_snapshot: profile,
-      medications_snapshot: medications,
-    });
+    const { data: insertedData, error } = await supabase
+      .from("consultations")
+      .insert({
+        user_id: user.id,
+        type: consultType,
+        content: fullContent,
+        image_urls: uploadedUrls,
+        health_snapshot: profile ? {
+          ...profile,
+          gender: excludedHealthKeys.has("gender") ? null : profile.gender,
+          birth_date: excludedHealthKeys.has("age") ? null : profile.birth_date,
+          height_cm: excludedHealthKeys.has("height") ? null : profile.height_cm,
+          weight_kg: excludedHealthKeys.has("weight") ? null : profile.weight_kg,
+          conditions: excludedHealthKeys.has("conditions") ? [] : profile.conditions,
+          allergies: excludedHealthKeys.has("allergies") ? [] : profile.allergies,
+          pregnancy_status: excludedHealthKeys.has("pregnancy") ? null : profile.pregnancy_status,
+        } : null,
+        medications_snapshot: medications.filter((m) => !excludedMedIds.has(m.id)),
+      })
+      .select("id")
+      .single();
 
-    if (!error) {
+    if (!error && insertedData) {
+      // Generate AI analysis report in background
+      try {
+        const analyzeRes = await fetch("/api/consult-analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            consultType,
+            question: fullContent,
+            medications: medications.map((m) => ({
+              name: m.name,
+              type: m.type,
+              dosage: m.dosage,
+            })),
+            profile: profile
+              ? {
+                  gender: profile.gender,
+                  birth_date: profile.birth_date,
+                  conditions: profile.conditions,
+                  allergies: profile.allergies,
+                  pregnancy_status: profile.pregnancy_status,
+                }
+              : null,
+          }),
+        });
+        const analyzeData = await analyzeRes.json();
+        if (analyzeData.report) {
+          await supabase
+            .from("consultations")
+            .update({
+              ai_report: analyzeData.report,
+              ai_report_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", insertedData.id);
+        }
+      } catch {
+        // AI report generation failed — consultation still saved
+      }
+
       router.push("/consultations");
     }
     setSubmitting(false);
@@ -561,9 +626,9 @@ export default function NewConsultationContent() {
             </div>
             <div className="text-left">
               <p className="text-sm font-semibold text-gray-900">
-                내 건강정보 · 복용약 {medications.length}개
+                내 정보 · 복용약 {medications.filter((m) => !excludedMedIds.has(m.id)).length}개
               </p>
-              <p className="text-xs text-gray-400">약사에게 자동으로 전달돼요</p>
+              <p className="text-xs text-gray-400">포함할 정보를 선택할 수 있어요</p>
             </div>
           </div>
           {showInfo ? (
@@ -575,29 +640,66 @@ export default function NewConsultationContent() {
 
         {showInfo && (
           <div className="bg-surface rounded-2xl px-4 py-4 mb-5 space-y-4">
+            {/* 건강정보 — 개별 X로 제외 가능 */}
             <div>
               <p className="text-xs font-semibold text-gray-400 mb-2">건강정보</p>
               <div className="flex flex-wrap gap-1.5">
                 {profile?.gender && (
-                  <InfoChip label={profile.gender === "male" ? "남성" : "여성"} />
+                  <RemovableChip
+                    label={profile.gender === "male" ? "남성" : "여성"}
+                    excluded={excludedHealthKeys.has("gender")}
+                    onToggle={() => toggleHealthKey("gender")}
+                  />
                 )}
-                {age && <InfoChip label={`${age}세`} />}
-                {profile?.height_cm && <InfoChip label={`${profile.height_cm}cm`} />}
-                {profile?.weight_kg && <InfoChip label={`${profile.weight_kg}kg`} />}
-                {profile?.conditions?.map((c) => (
-                  <InfoChip key={c} label={c} variant="warning" />
-                ))}
-                {profile?.allergies?.map((a) => (
-                  <InfoChip key={a} label={`알레르기: ${a}`} variant="danger" />
-                ))}
-                {profile?.pregnancy_status === "pregnant" && (
-                  <InfoChip label="임신 중" variant="warning" />
+                {age && (
+                  <RemovableChip
+                    label={`${age}세`}
+                    excluded={excludedHealthKeys.has("age")}
+                    onToggle={() => toggleHealthKey("age")}
+                  />
                 )}
-                {profile?.pregnancy_status === "nursing" && (
-                  <InfoChip label="수유 중" variant="warning" />
+                {profile?.height_cm && (
+                  <RemovableChip
+                    label={`${profile.height_cm}cm`}
+                    excluded={excludedHealthKeys.has("height")}
+                    onToggle={() => toggleHealthKey("height")}
+                  />
+                )}
+                {profile?.weight_kg && (
+                  <RemovableChip
+                    label={`${profile.weight_kg}kg`}
+                    excluded={excludedHealthKeys.has("weight")}
+                    onToggle={() => toggleHealthKey("weight")}
+                  />
+                )}
+                {profile?.conditions && profile.conditions.length > 0 && (
+                  <RemovableChip
+                    label={profile.conditions.join(", ")}
+                    variant="warning"
+                    excluded={excludedHealthKeys.has("conditions")}
+                    onToggle={() => toggleHealthKey("conditions")}
+                  />
+                )}
+                {profile?.allergies && profile.allergies.length > 0 && (
+                  <RemovableChip
+                    label={`알레르기: ${profile.allergies.join(", ")}`}
+                    variant="danger"
+                    excluded={excludedHealthKeys.has("allergies")}
+                    onToggle={() => toggleHealthKey("allergies")}
+                  />
+                )}
+                {(profile?.pregnancy_status === "pregnant" || profile?.pregnancy_status === "nursing") && (
+                  <RemovableChip
+                    label={profile.pregnancy_status === "pregnant" ? "임신 중" : "수유 중"}
+                    variant="warning"
+                    excluded={excludedHealthKeys.has("pregnancy")}
+                    onToggle={() => toggleHealthKey("pregnancy")}
+                  />
                 )}
               </div>
             </div>
+
+            {/* 복용 약 — 개별 X로 제외 가능 */}
             <div>
               <p className="text-xs font-semibold text-gray-400 mb-2">복용 중인 약 · 영양제</p>
               {medications.length === 0 ? (
@@ -613,30 +715,54 @@ export default function NewConsultationContent() {
                 </p>
               ) : (
                 <div className="space-y-1.5">
-                  {medications.map((med) => (
-                    <div
-                      key={med.id}
-                      className="flex items-center gap-2 bg-white rounded-xl px-3 py-2"
-                    >
+                  {medications.map((med) => {
+                    const excluded = excludedMedIds.has(med.id);
+                    return (
                       <div
-                        className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          med.type === "supplement" ? "bg-orange-50" : "bg-brand-light"
+                        key={med.id}
+                        className={`flex items-center gap-2 rounded-xl px-3 py-2 transition-colors ${
+                          excluded ? "bg-gray-50 opacity-40" : "bg-white"
                         }`}
                       >
-                        {med.type === "supplement" ? (
-                          <SupplementBottle className="w-3.5 h-3.5 text-orange-500" />
-                        ) : (
-                          <Pill className="w-3.5 h-3.5 text-brand" />
+                        <div
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                            med.type === "supplement" ? "bg-orange-50" : "bg-brand-light"
+                          }`}
+                        >
+                          {med.type === "supplement" ? (
+                            <SupplementBottle className="w-3.5 h-3.5 text-orange-500" />
+                          ) : (
+                            <Pill className="w-3.5 h-3.5 text-brand" />
+                          )}
+                        </div>
+                        <span className={`text-sm font-medium truncate flex-1 ${excluded ? "text-gray-400 line-through" : "text-gray-900"}`}>
+                          {med.name}
+                        </span>
+                        {med.dosage && !excluded && (
+                          <span className="text-xs text-gray-400 flex-shrink-0">{med.dosage}</span>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExcludedMedIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(med.id)) next.delete(med.id);
+                              else next.add(med.id);
+                              return next;
+                            });
+                          }}
+                          className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 active:bg-gray-100 transition-colors"
+                          aria-label={excluded ? "포함하기" : "제외하기"}
+                        >
+                          {excluded ? (
+                            <Plus className="w-3.5 h-3.5 text-gray-400" />
+                          ) : (
+                            <X className="w-3.5 h-3.5 text-gray-300" />
+                          )}
+                        </button>
                       </div>
-                      <span className="text-sm text-gray-900 font-medium truncate">
-                        {med.name}
-                      </span>
-                      {med.dosage && (
-                        <span className="text-xs text-gray-400 flex-shrink-0">{med.dosage}</span>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -917,7 +1043,7 @@ export default function NewConsultationContent() {
           disabled={!canSubmit || submitting}
           className="w-full h-12 rounded-xl bg-brand text-white font-semibold text-[0.9375rem] flex items-center justify-center gap-2 active:brightness-95 transition-all duration-150 disabled:opacity-40"
         >
-          {submitting ? "요청 중..." : "상담 요청하기"}
+          {submitting ? "AI 분석 리포트 생성 중..." : "상담 요청하기"}
         </button>
         <div className="h-6" />
       </main>
@@ -1127,5 +1253,43 @@ function InfoChip({
     <span className={`inline-block text-xs font-medium px-2.5 py-1 rounded-lg ${styles[variant]}`}>
       {label}
     </span>
+  );
+}
+
+/* ── 제거 가능한 칩 ── */
+function RemovableChip({
+  label,
+  variant = "default",
+  excluded,
+  onToggle,
+}: {
+  label: string;
+  variant?: "default" | "warning" | "danger";
+  excluded: boolean;
+  onToggle: () => void;
+}) {
+  const styles = {
+    default: "bg-white text-gray-600",
+    warning: "bg-amber-50 text-amber-700",
+    danger: "bg-red-50 text-red-600",
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`inline-flex items-center gap-1 text-xs font-medium pl-2.5 pr-1.5 py-1 rounded-lg transition-all duration-150 ${
+        excluded ? "bg-gray-100 text-gray-300 line-through" : styles[variant]
+      }`}
+    >
+      {label}
+      <span className="w-4 h-4 flex items-center justify-center rounded-full flex-shrink-0">
+        {excluded ? (
+          <Plus className="w-3 h-3" />
+        ) : (
+          <X className="w-3 h-3 opacity-40" />
+        )}
+      </span>
+    </button>
   );
 }
