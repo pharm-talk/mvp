@@ -168,22 +168,27 @@ export default function MedicationsPage() {
   const [formEndDate, setFormEndDate] = useState("");
 
   const fetchMedications = useCallback(async () => {
-    const { data } = await supabase
-      .from("medications")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (data) {
-      setMedications(
-        data.map((m: Record<string, unknown>) => ({
-          ...m,
-          category: (m.category as MedCategory) ?? mapTypeToCategory(m.type as string),
-          archived: (m.archived as boolean) ?? false,
-          start_date: (m.start_date as string) ?? null,
-          end_date: (m.end_date as string) ?? null,
-        })) as Medication[]
-      );
+    try {
+      const { data } = await supabase
+        .from("medications")
+        .select("id, name, type, category, dosage, frequency, notes, is_active, start_date, end_date, archived")
+        .order("created_at", { ascending: false });
+      if (data) {
+        setMedications(
+          data.map((m: Record<string, unknown>) => ({
+            ...m,
+            category: (m.category as MedCategory) ?? mapTypeToCategory(m.type as string),
+            archived: (m.archived as boolean) ?? false,
+            start_date: (m.start_date as string) ?? null,
+            end_date: (m.end_date as string) ?? null,
+          })) as Medication[]
+        );
+      }
+    } catch {
+      // fetch failed
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [supabase]);
 
   const fetchReports = useCallback(async () => {
@@ -449,7 +454,7 @@ export default function MedicationsPage() {
 
     return (
       <div className="min-h-dvh bg-white">
-        <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60">
           <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
             <button
               type="button"
@@ -735,7 +740,7 @@ export default function MedicationsPage() {
       />
 
       {/* 헤더 */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
           <button
             type="button"
@@ -926,7 +931,7 @@ export default function MedicationsPage() {
                             </button>
                           </div>
                           <div className="px-4 pb-4">
-                            <p className="text-[0.8125rem] text-gray-700 leading-relaxed whitespace-pre-line" style={{ wordBreak: "keep-all" }}>
+                            <p className="text-[0.8125rem] text-gray-700 leading-relaxed whitespace-pre-line">
                               {reportContent}
                             </p>
                           </div>
@@ -1147,7 +1152,7 @@ function AiResultsScreen({
 }) {
   return (
     <div className="min-h-dvh bg-white">
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
           <button
             type="button"

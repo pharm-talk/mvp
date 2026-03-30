@@ -121,7 +121,7 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={resetToMain}
-            className="self-start text-gray-400 text-sm mb-8 active:text-gray-600 transition-colors"
+            className="self-start text-gray-400 text-sm mb-8 min-h-[44px] flex items-center active:text-gray-600 transition-colors"
           >
             &larr; 돌아가기
           </button>

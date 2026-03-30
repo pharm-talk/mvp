@@ -147,7 +147,7 @@ export default function InvitePage() {
   if (step === "success" && joinedGroup) {
     return (
       <div className="min-h-dvh bg-surface flex flex-col">
-        <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60">
           <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
             <div className="w-10" />
             <h1 className="text-base font-bold text-gray-900">그룹 참여 완료</h1>
@@ -187,11 +187,11 @@ export default function InvitePage() {
   return (
     <div className="min-h-dvh bg-surface">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.push("/family")}
             className="w-10 h-10 rounded-full flex items-center justify-center active:bg-gray-50 transition-colors"
             aria-label="뒤로가기"
           >

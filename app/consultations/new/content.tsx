@@ -19,6 +19,7 @@ import {
   Wand2,
   Plus,
 } from "lucide-react";
+import { ConsultProcessBanner } from "@/components/ui/AiDisclaimer";
 
 /* ── 영양제 통 아이콘 ── */
 const SupplementBottle = ({ className }: { className?: string }) => (
@@ -614,6 +615,11 @@ export default function NewConsultationContent() {
       </header>
 
       <main className="max-w-lg mx-auto px-5 pt-5 pb-10 safe-bottom">
+        {/* ── 프로세스 안내 ── */}
+        <ConsultProcessBanner />
+
+        <div className="h-5" />
+
         {/* ── 건강정보 요약 (접기/펼치기) ── */}
         <button
           type="button"

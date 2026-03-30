@@ -149,7 +149,7 @@ export default function OnboardingPage() {
                 if (step === totalSteps) handleSubmit();
                 else router.push("/");
               }}
-              className="text-sm text-gray-300 active:text-gray-500 transition-colors"
+              className="text-sm text-gray-300 min-h-[44px] flex items-center active:text-gray-500 transition-colors"
             >
               건너뛰기
             </button>

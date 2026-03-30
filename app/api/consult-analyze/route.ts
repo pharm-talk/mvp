@@ -108,6 +108,20 @@ export async function POST(request: NextRequest) {
   try {
     const body: RequestBody = await request.json();
 
+    if (!body.question || typeof body.question !== "string" || body.question.trim().length === 0) {
+      return NextResponse.json(
+        { error: "상담 내용을 입력해주세요." },
+        { status: 400 }
+      );
+    }
+
+    if (!body.consultType || !["medication", "supplement"].includes(body.consultType)) {
+      return NextResponse.json(
+        { error: "유효한 상담 유형을 선택해주세요." },
+        { status: 400 }
+      );
+    }
+
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return NextResponse.json(

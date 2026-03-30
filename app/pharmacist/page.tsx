@@ -96,7 +96,7 @@ export default function PharmacistDashboard() {
   return (
     <div className="min-h-dvh bg-surface">
       {/* 헤더 */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
           <div className="flex items-center gap-2">
             <span className="text-[1.25rem] font-extrabold tracking-tight text-gray-900">

@@ -120,6 +120,7 @@ export default function ChatPage() {
 
   /* ─ Initial data ─ */
   const loadInitialData = useCallback(async () => {
+    try {
     const [medsResult, profileResult, chatsResult] = await Promise.all([
       supabase
         .from("medications")
@@ -132,7 +133,7 @@ export default function ChatPage() {
         .single(),
       supabase
         .from("ai_chats")
-        .select("*")
+        .select("id, title, messages, created_at, updated_at")
         .eq("type", "food_drug")
         .order("updated_at", { ascending: false })
         .limit(20),
@@ -152,8 +153,11 @@ export default function ChatPage() {
     if (chatsResult.data) {
       setChatHistory(chatsResult.data as AiChat[]);
     }
-
-    setPageLoading(false);
+    } catch {
+      // fetch failed
+    } finally {
+      setPageLoading(false);
+    }
   }, [supabase]);
 
   useEffect(() => {

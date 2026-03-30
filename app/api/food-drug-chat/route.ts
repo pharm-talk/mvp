@@ -96,6 +96,21 @@ export async function POST(request: NextRequest) {
     const body: RequestBody = await request.json();
     const { messages } = body;
 
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return NextResponse.json(
+        { error: "메시지를 입력해주세요." },
+        { status: 400 }
+      );
+    }
+
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage || !lastMessage.content || lastMessage.content.trim().length === 0) {
+      return NextResponse.json(
+        { error: "메시지 내용이 비어있습니다." },
+        { status: 400 }
+      );
+    }
+
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return NextResponse.json(

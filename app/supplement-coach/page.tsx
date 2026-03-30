@@ -232,6 +232,13 @@ function ReportMessage({ report }: { report: string }) {
             </span>
           </div>
 
+          <div className="flex items-start gap-1.5 px-3.5 pb-2.5">
+            <ShieldCheck className="w-3 h-3 text-blue-500 mt-0.5 flex-shrink-0" />
+            <p className="text-[0.6875rem] text-blue-600 leading-snug" style={{ wordBreak: "keep-all" }}>
+              면허 인증 약사가 직접 참여해 만든 AI가 분석한 결과예요
+            </p>
+          </div>
+
           <div className="px-4 pb-4 space-y-2.5">
             {sections.map((section, idx) => {
               const hasBorderAccent =
@@ -265,6 +272,7 @@ function ReportMessage({ report }: { report: string }) {
                 분석 결과를 표시할 수 없습니다.
               </p>
             )}
+
           </div>
         </div>
       </div>
@@ -375,7 +383,7 @@ export default function SupplementCoachPage() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, loading, phase, intakeStep, scrollToBottom]);
+  }, [messages, loading, phase, intakeStep, report, scrollToBottom]);
 
   /* Current intake selections based on step */
   const currentSelections =
@@ -537,9 +545,18 @@ export default function SupplementCoachPage() {
       }
 
       setReport(data.report);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.report, isReport: true },
+        { role: "assistant", content: "궁금한 게 더 있으면 물어보세요!" },
+      ]);
       setPhase("chat");
     } catch {
       setReport(null);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "분석 중 오류가 발생했어요. 잠시 후 다시 시도해주세요." },
+      ]);
       setPhase("chat");
     }
   };
@@ -715,7 +732,7 @@ ${report ? `[초기 분석 리포트]\n${report}\n\n` : ""}${conversationSummary
   if (pageLoading) {
     return (
       <div className="min-h-dvh bg-surface">
-        <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60">
           <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
             <div className="w-10" />
             <div className="h-4 w-32 bg-gray-100 rounded animate-pulse" />
@@ -740,11 +757,11 @@ ${report ? `[초기 분석 리포트]\n${report}\n\n` : ""}${conversationSummary
   if (!hasMedications) {
     return (
       <div className="min-h-dvh bg-surface">
-        <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60">
           <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => router.push("/")}
               className="w-10 h-10 rounded-full flex items-center justify-center active:bg-gray-50 transition-colors"
               aria-label="뒤로가기"
             >
@@ -815,11 +832,11 @@ ${report ? `[초기 분석 리포트]\n${report}\n\n` : ""}${conversationSummary
   return (
     <div className="min-h-dvh bg-white flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/40 flex-shrink-0">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60 flex-shrink-0">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.push("/")}
             className="w-10 h-10 rounded-full flex items-center justify-center active:bg-gray-50 transition-colors"
             aria-label="뒤로가기"
           >
@@ -851,9 +868,11 @@ ${report ? `[초기 분석 리포트]\n${report}\n\n` : ""}${conversationSummary
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full">
         <div className="px-5 pt-5 pb-4">
-          {/* Rendered past messages (intake Q&A) */}
+          {/* Rendered past messages (intake Q&A + report + chat) */}
           {messages.map((msg, idx) =>
-            msg.role === "assistant" ? (
+            msg.isReport ? (
+              <ReportMessage key={idx} report={msg.content} />
+            ) : msg.role === "assistant" ? (
               <AiMessage key={idx} content={msg.content} />
             ) : (
               <UserMessage key={idx} content={msg.content} />
@@ -882,17 +901,7 @@ ${report ? `[초기 분석 리포트]\n${report}\n\n` : ""}${conversationSummary
             </>
           )}
 
-          {/* Report display in chat phase */}
-          {phase === "chat" && report && (
-            <>
-              <ReportMessage report={report} />
-              <AiMessage content="궁금한 게 더 있으면 물어보세요!" />
-            </>
-          )}
-
-          {phase === "chat" && !report && (
-            <AiMessage content="분석 중 오류가 발생했어요. 잠시 후 다시 시도해주세요." />
-          )}
+          {/* Report and error are now inside messages array */}
 
           {/* Loading indicator for follow-up chat */}
           {loading && <TypingIndicator text="생각하고 있어요..." />}

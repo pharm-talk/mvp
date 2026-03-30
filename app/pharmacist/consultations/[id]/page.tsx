@@ -88,19 +88,24 @@ export default function PharmacistConsultationDetail() {
   const [editMode, setEditMode] = useState(false);
 
   const fetchConsultation = useCallback(async () => {
-    const { data } = await supabase
-      .from("consultations")
-      .select("*")
-      .eq("id", id)
-      .single();
-    if (data) {
-      setConsultation(data);
-      // Pre-fill editor with AI report for editing
-      if (data.ai_report && !data.verified_at) {
-        setEditedAnswer(data.ai_report);
+    try {
+      const { data } = await supabase
+        .from("consultations")
+        .select("id, user_id, content, type, status, pharmacist_id, health_snapshot, medications_snapshot, answer, answered_at, ai_report, ai_report_at, verified_by, verified_at, followup_question, followup_answer, created_at")
+        .eq("id", id)
+        .single();
+      if (data) {
+        setConsultation(data);
+        // Pre-fill editor with AI report for editing
+        if (data.ai_report && !data.verified_at) {
+          setEditedAnswer(data.ai_report);
+        }
       }
+    } catch {
+      // fetch failed
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [supabase, id]);
 
   useEffect(() => {
@@ -444,9 +449,7 @@ export default function PharmacistConsultationDetail() {
               환자 상담 내용
             </p>
             <p
-              className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap"
-              style={{ wordBreak: "keep-all" }}
-            >
+              className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap"            >
               {consultation.content}
             </p>
           </div>
@@ -475,7 +478,6 @@ export default function PharmacistConsultationDetail() {
               <div className="px-4 py-4">
                 <p
                   className="text-sm text-gray-700 leading-[1.8] whitespace-pre-wrap"
-                  style={{ wordBreak: "keep-all" }}
                 >
                   {consultation.ai_report}
                 </p>
@@ -712,7 +714,6 @@ export default function PharmacistConsultationDetail() {
               {consultation.answer !== consultation.ai_report ? (
                 <p
                   className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap"
-                  style={{ wordBreak: "keep-all" }}
                 >
                   {consultation.answer}
                 </p>
@@ -732,7 +733,6 @@ export default function PharmacistConsultationDetail() {
               </p>
               <p
                 className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap"
-                style={{ wordBreak: "keep-all" }}
               >
                 {consultation.followup_question}
               </p>
@@ -747,7 +747,6 @@ export default function PharmacistConsultationDetail() {
               </p>
               <p
                 className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap"
-                style={{ wordBreak: "keep-all" }}
               >
                 {consultation.followup_answer}
               </p>

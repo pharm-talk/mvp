@@ -421,11 +421,11 @@ export default function PharmacyPage() {
       />
 
       {/* 헤더 */}
-      <header className="sticky top-0 z-[1000] bg-white border-b border-gray-100/60">
+      <header className="sticky top-0 z-[1000] bg-white/90 backdrop-blur-md border-b border-gray-100/60">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.push("/")}
             className="w-10 h-10 rounded-full flex items-center justify-center active:bg-gray-50 transition-colors"
             aria-label="뒤로가기"
           >

@@ -47,6 +47,7 @@ export default function FamilyPage() {
   const [creating, setCreating] = useState(false);
 
   const fetchGroups = useCallback(async () => {
+    try {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -69,7 +70,7 @@ export default function FamilyPage() {
 
     const { data: groupsData } = await supabase
       .from("family_groups")
-      .select("*")
+      .select("id, owner_id, name, invite_code, created_at")
       .in("id", groupIds);
 
     if (!groupsData) {
@@ -81,7 +82,7 @@ export default function FamilyPage() {
     // Get all members for these groups
     const { data: allMembers } = await supabase
       .from("family_members")
-      .select("*")
+      .select("id, group_id, user_id, nickname, role, joined_at")
       .in("group_id", groupIds);
 
     const groupsWithMembers: GroupWithMembers[] = groupsData.map((g) => ({
@@ -91,7 +92,11 @@ export default function FamilyPage() {
     }));
 
     setGroups(groupsWithMembers);
-    setLoading(false);
+    } catch {
+      // fetch failed
+    } finally {
+      setLoading(false);
+    }
   }, [supabase]);
 
   useEffect(() => {
@@ -131,11 +136,11 @@ export default function FamilyPage() {
   return (
     <div className="min-h-dvh bg-surface">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
           <button
             type="button"
-            onClick={() => router.back()}
+            onClick={() => router.push("/")}
             className="w-10 h-10 rounded-full flex items-center justify-center active:bg-gray-50 transition-colors"
             aria-label="뒤로가기"
           >

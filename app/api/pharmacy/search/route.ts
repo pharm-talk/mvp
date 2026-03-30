@@ -227,8 +227,15 @@ async function reverseGeocode(lat: number, lng: number) {
    ════════════════════════════════════════════ */
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const lat = parseFloat(searchParams.get("lat") ?? "0");
-  const lng = parseFloat(searchParams.get("lng") ?? "0");
+  const lat = parseFloat(searchParams.get("lat") ?? "");
+  const lng = parseFloat(searchParams.get("lng") ?? "");
+
+  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    return NextResponse.json(
+      { error: "유효한 좌표를 입력해주세요." },
+      { status: 400 }
+    );
+  }
 
   const clientId = process.env.NAVER_CLIENT_ID;
   const clientSecret = process.env.NAVER_CLIENT_SECRET;

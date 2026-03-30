@@ -134,6 +134,13 @@ export async function POST(request: NextRequest) {
   try {
     const body: RequestBody = await request.json();
 
+    if (!body.medications || !Array.isArray(body.medications) || body.medications.length === 0) {
+      return NextResponse.json(
+        { error: "분석할 약/영양제 정보가 필요합니다." },
+        { status: 400 }
+      );
+    }
+
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return NextResponse.json(

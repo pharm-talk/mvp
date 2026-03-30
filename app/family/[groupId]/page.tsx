@@ -158,6 +158,7 @@ export default function GroupDetailPage() {
   const isOwner = group?.owner_id === userId;
 
   const fetchGroup = useCallback(async () => {
+    try {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -166,7 +167,7 @@ export default function GroupDetailPage() {
 
     const { data: groupData } = await supabase
       .from("family_groups")
-      .select("*")
+      .select("id, owner_id, name, invite_code, created_at")
       .eq("id", groupId)
       .single();
 
@@ -178,7 +179,7 @@ export default function GroupDetailPage() {
 
     const { data: membersData } = await supabase
       .from("family_members")
-      .select("*")
+      .select("id, group_id, user_id, nickname, role, joined_at")
       .eq("group_id", groupId)
       .order("joined_at", { ascending: true });
 
@@ -186,12 +187,16 @@ export default function GroupDetailPage() {
 
     const { data: accessData } = await supabase
       .from("family_medication_access")
-      .select("*")
+      .select("id, group_id, member_id, target_user_id, can_view, can_edit")
       .eq("group_id", groupId)
       .eq("member_id", user.id);
 
     setAccess(accessData ?? []);
-    setLoading(false);
+    } catch {
+      // fetch failed
+    } finally {
+      setLoading(false);
+    }
   }, [supabase, groupId, router]);
 
   useEffect(() => {
@@ -378,7 +383,7 @@ export default function GroupDetailPage() {
   if (loading) {
     return (
       <div className="min-h-dvh bg-surface">
-        <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60">
           <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
             <div className="w-10 h-10" />
             <div className="h-4 w-24 bg-gray-100 rounded animate-pulse" />
@@ -414,7 +419,7 @@ export default function GroupDetailPage() {
   return (
     <div className="min-h-dvh bg-surface">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
           <button
             type="button"

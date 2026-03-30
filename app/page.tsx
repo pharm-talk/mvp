@@ -21,6 +21,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { Robot } from "@phosphor-icons/react";
+import type { PublicConsultationPreview } from "@/types/consultation";
 
 /* ── 영양제 통 아이콘 ── */
 const SupplementBottle = ({ className }: { className?: string }) => (
@@ -111,18 +112,21 @@ export default function HomePage() {
   const [recentConsultations, setRecentConsultations] = useState<RecentConsultation[]>([]);
   const [hasHealthInfo, setHasHealthInfo] = useState(true);
   const [healthInfo, setHealthInfo] = useState<HealthInfo>({ gender: null, age: null, conditions: [] });
+  const [publicConsultations, setPublicConsultations] = useState<PublicConsultationPreview[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
+    try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [medsRes, consultsRes, familyRes, recentRes, profileRes] = await Promise.all([
+    const [medsRes, consultsRes, familyRes, recentRes, profileRes, publicRes] = await Promise.all([
       supabase.from("medications").select("category").eq("user_id", user.id).eq("archived", false),
       supabase.from("consultations").select("id", { count: "exact", head: true }).eq("user_id", user.id).in("status", ["pending", "assigned"]),
       supabase.from("family_members").select("group_id, nickname").eq("user_id", user.id),
       supabase.from("consultations").select("id, content, status, ai_report, verified_at, created_at").eq("user_id", user.id).in("status", ["pending", "assigned", "answered"]).order("created_at", { ascending: false }).limit(3),
       supabase.from("profiles").select("gender, birth_date, conditions, allergies").eq("id", user.id).single(),
+      supabase.from("consultations").select("id, content, verified_at, created_at, tags").not("verified_at", "is", null).order("verified_at", { ascending: false }).limit(3),
     ]);
 
     // 건강정보
@@ -146,6 +150,7 @@ export default function HomePage() {
     });
     setConsultCount(consultsRes.count ?? 0);
     setRecentConsultations((recentRes.data as RecentConsultation[]) ?? []);
+    setPublicConsultations((publicRes.data as PublicConsultationPreview[]) ?? []);
 
     if (familyRes.data && familyRes.data.length > 0) {
       const groupIds = [...new Set(familyRes.data.map((f) => f.group_id))];
@@ -164,7 +169,11 @@ export default function HomePage() {
         setFamilyMembers(memberIds.map((id) => ({ nickname: uniqueMembers[id], medCount: memberMedCounts[id] ?? 0 })));
       }
     }
-    setLoading(false);
+    } catch {
+      // fetch failed
+    } finally {
+      setLoading(false);
+    }
   }, [supabase]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -200,7 +209,7 @@ export default function HomePage() {
               <Bell className="w-[1.2rem] h-[1.2rem] text-gray-500" />
               {consultCount > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />}
             </button>
-            <button type="button" onClick={() => router.push("/pharmacist")} className="h-7 px-2.5 rounded-full bg-amber-100 text-amber-700 text-[0.625rem] font-bold active:bg-amber-200 transition-colors">약사뷰</button>
+            <button type="button" onClick={() => router.push("/pharmacist")} className="h-9 px-3 rounded-full bg-amber-100 text-amber-700 text-xs font-bold active:bg-amber-200 transition-colors">약사뷰</button>
             <button type="button" onClick={handleLogout} className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center active:bg-gray-100 transition-colors" aria-label="로그아웃">
               <LogOut className="w-[1.1rem] h-[1.1rem] text-gray-400" />
             </button>
@@ -252,7 +261,7 @@ export default function HomePage() {
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                   내 약 서랍
                 </div>
-                <h2 className="text-[1.25rem] font-bold text-white leading-snug mb-1" style={{ wordBreak: "keep-all" }}>
+                <h2 className="text-[1.25rem] font-bold text-white leading-snug mb-1">
                   처방전 사진 한 장이면
                   <br />
                   약 등록부터 상호작용 체크까지
@@ -344,7 +353,7 @@ export default function HomePage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[0.9375rem] font-bold text-gray-900">영양제 코디네이터</p>
-                <p className="text-xs text-gray-400 mt-0.5" style={{ wordBreak: "keep-all" }}>내 약과 건강 상태에 맞는 영양제 추천</p>
+                <p className="text-xs text-gray-400 mt-0.5">내 약과 건강 상태에 맞는 영양제 추천</p>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-200 flex-shrink-0" />
             </div>
@@ -369,7 +378,7 @@ export default function HomePage() {
                       <span className={`inline-flex items-center gap-1 text-[0.6875rem] font-semibold px-2 py-0.5 rounded-full ${s.color}`}>{s.icon}{s.label}</span>
                       <span className="text-[0.6875rem] text-gray-300">{formatDate(c.created_at)}</span>
                     </div>
-                    <p className="text-sm text-gray-600 leading-relaxed line-clamp-2" style={{ wordBreak: "keep-all" }}>{c.content}</p>
+                    <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">{c.content}</p>
                   </button>
                 );
               })}
@@ -392,6 +401,44 @@ export default function HomePage() {
                 <ChevronRight className="w-4 h-4 text-gray-200 flex-shrink-0" />
               </div>
             </button>
+          </section>
+        )}
+
+        {/* ── 다른 분들의 상담 ── */}
+        {publicConsultations.length > 0 && (
+          <section className="px-5 pt-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-[0.9375rem] font-bold text-gray-900">다른 분들의 상담</h2>
+              <button type="button" onClick={() => router.push("/consultations?tab=browse")} className="text-xs text-gray-400 font-medium flex items-center gap-0.5">
+                더보기 <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="space-y-2.5">
+              {publicConsultations.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => router.push(`/consultations/public/${c.id}`)}
+                  className="w-full bg-white rounded-2xl p-4 shadow-card text-left active:scale-[0.99] transition-all duration-150"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="inline-flex items-center gap-1 text-[0.6875rem] font-semibold px-2 py-0.5 rounded-full bg-brand-light text-brand">
+                      <ShieldCheck className="w-3 h-3" />
+                      약사 검증 완료
+                    </span>
+                    <span className="text-[0.6875rem] text-gray-300">{formatDate(c.created_at)}</span>
+                  </div>
+                  <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">{c.content}</p>
+                  {(c.tags ?? []).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {(c.tags ?? []).slice(0, 3).map((tag: string) => (
+                        <span key={tag} className="text-[0.625rem] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{tag}</span>
+                      ))}
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
           </section>
         )}
 
@@ -423,7 +470,7 @@ function FeatureRow({ icon, iconBg, iconColor, title, desc }: { icon: React.Reac
       </div>
       <div className="min-w-0">
         <p className="text-sm font-semibold text-gray-800">{title}</p>
-        <p className="text-xs text-gray-400 mt-0.5" style={{ wordBreak: "keep-all" }}>{desc}</p>
+        <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
       </div>
     </div>
   );
