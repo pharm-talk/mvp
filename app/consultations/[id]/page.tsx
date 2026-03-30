@@ -70,10 +70,13 @@ export default function ConsultationDetailPage() {
 
   const fetchConsultation = useCallback(async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       const { data } = await supabase
         .from("consultations")
         .select("id, content, status, image_urls, health_snapshot, medications_snapshot, answer, answered_at, ai_report, ai_report_at, verified_by, verified_at, followup_question, followup_answer, created_at")
         .eq("id", id)
+        .eq("user_id", user.id)
         .single();
       if (data) setConsultation(data);
     } catch {
@@ -91,7 +94,7 @@ export default function ConsultationDetailPage() {
     if (!followup.trim() || !consultation) return;
     setSubmittingFollowup(true);
 
-    await supabase
+    const { error } = await supabase
       .from("consultations")
       .update({
         followup_question: followup.trim(),
@@ -100,10 +103,12 @@ export default function ConsultationDetailPage() {
       })
       .eq("id", consultation.id);
 
-    setConsultation((prev) =>
-      prev ? { ...prev, followup_question: followup.trim() } : null
-    );
-    setFollowup("");
+    if (!error) {
+      setConsultation((prev) =>
+        prev ? { ...prev, followup_question: followup.trim() } : null
+      );
+      setFollowup("");
+    }
     setSubmittingFollowup(false);
   };
 

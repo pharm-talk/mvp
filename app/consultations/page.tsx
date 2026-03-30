@@ -73,9 +73,12 @@ export default function ConsultationsPage() {
 
   const fetchConsultations = useCallback(async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       const { data } = await supabase
         .from("consultations")
         .select("id, content, status, created_at, answered_at")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (data) setConsultations(data);
     } catch {

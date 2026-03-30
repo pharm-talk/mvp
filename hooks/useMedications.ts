@@ -177,28 +177,34 @@ export function useMedications() {
 
   const handleDelete = useCallback(async (id: string) => {
     setDeleting(id);
-    await supabase.from("medications").delete().eq("id", id);
-    setMedications((prev) => prev.filter((m) => m.id !== id));
-    setSelectedId(null);
+    const { error } = await supabase.from("medications").delete().eq("id", id);
+    if (!error) {
+      setMedications((prev) => prev.filter((m) => m.id !== id));
+      setSelectedId(null);
+    }
     setDeleting(null);
   }, [supabase]);
 
   const handleArchive = useCallback(async (id: string) => {
-    await supabase
+    const { error } = await supabase
       .from("medications")
       .update({ archived: true, updated_at: new Date().toISOString() })
       .eq("id", id);
-    await fetchMedications();
-    setSelectedId(null);
+    if (!error) {
+      await fetchMedications();
+      setSelectedId(null);
+    }
   }, [supabase, fetchMedications]);
 
   const handleUnarchive = useCallback(async (id: string) => {
-    await supabase
+    const { error } = await supabase
       .from("medications")
       .update({ archived: false, updated_at: new Date().toISOString() })
       .eq("id", id);
-    await fetchMedications();
-    setSelectedId(null);
+    if (!error) {
+      await fetchMedications();
+      setSelectedId(null);
+    }
   }, [supabase, fetchMedications]);
 
   /* -- AI 사진 분석 -- */
