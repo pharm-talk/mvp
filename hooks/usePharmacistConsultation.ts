@@ -73,7 +73,7 @@ export function usePharmacistConsultation(id: string) {
     }
 
     const now = new Date().toISOString();
-    await supabase
+    const { error } = await supabase
       .from("consultations")
       .update({
         answer: consultation.ai_report,
@@ -85,18 +85,20 @@ export function usePharmacistConsultation(id: string) {
       })
       .eq("id", consultation.id);
 
-    setConsultation((prev) =>
-      prev
-        ? {
-            ...prev,
-            answer: prev.ai_report,
-            status: "answered",
-            answered_at: now,
-            verified_by: user.id,
-            verified_at: now,
-          }
-        : null
-    );
+    if (!error) {
+      setConsultation((prev) =>
+        prev
+          ? {
+              ...prev,
+              answer: prev.ai_report,
+              status: "answered",
+              answered_at: now,
+              verified_by: user.id,
+              verified_at: now,
+            }
+          : null
+      );
+    }
     setSubmitting(false);
   };
 
@@ -112,7 +114,7 @@ export function usePharmacistConsultation(id: string) {
     }
 
     const now = new Date().toISOString();
-    await supabase
+    const { error } = await supabase
       .from("consultations")
       .update({
         answer: editedAnswer.trim(),
@@ -124,26 +126,28 @@ export function usePharmacistConsultation(id: string) {
       })
       .eq("id", consultation.id);
 
-    setConsultation((prev) =>
-      prev
-        ? {
-            ...prev,
-            answer: editedAnswer.trim(),
-            status: "answered",
-            answered_at: now,
-            verified_by: user.id,
-            verified_at: now,
-          }
-        : null
-    );
-    setEditMode(false);
+    if (!error) {
+      setConsultation((prev) =>
+        prev
+          ? {
+              ...prev,
+              answer: editedAnswer.trim(),
+              status: "answered",
+              answered_at: now,
+              verified_by: user.id,
+              verified_at: now,
+            }
+          : null
+      );
+      setEditMode(false);
+    }
     setSubmitting(false);
   };
 
   const handleFollowupAnswer = async () => {
     if (!followupAnswer.trim() || !consultation) return;
     setSubmitting(true);
-    await supabase
+    const { error } = await supabase
       .from("consultations")
       .update({
         followup_answer: followupAnswer.trim(),
@@ -151,12 +155,14 @@ export function usePharmacistConsultation(id: string) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", consultation.id);
-    setConsultation((prev) =>
-      prev
-        ? { ...prev, followup_answer: followupAnswer.trim(), status: "closed" }
-        : null
-    );
-    setFollowupAnswer("");
+    if (!error) {
+      setConsultation((prev) =>
+        prev
+          ? { ...prev, followup_answer: followupAnswer.trim(), status: "closed" }
+          : null
+      );
+      setFollowupAnswer("");
+    }
     setSubmitting(false);
   };
 

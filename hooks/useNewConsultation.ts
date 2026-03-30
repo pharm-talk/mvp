@@ -411,7 +411,9 @@ export function useNewConsultation() {
         const { data: urlData } = supabase.storage
           .from("consultation-images")
           .getPublicUrl(path);
-        uploadedUrls.push(urlData.publicUrl);
+        if (urlData?.publicUrl) {
+          uploadedUrls.push(urlData.publicUrl);
+        }
       }
     }
 
@@ -440,6 +442,10 @@ export function useNewConsultation() {
       .single();
 
     if (!error && insertedData) {
+      // 상세 페이지로 바로 이동 (분석 중 상태 표시)
+      router.push(`/consultations/${insertedData.id}`);
+
+      // AI 분석은 백그라운드에서 진행
       try {
         const analyzeRes = await fetch("/api/consult-analyze", {
           method: "POST",
@@ -477,8 +483,6 @@ export function useNewConsultation() {
       } catch {
         // AI report generation failed — consultation still saved
       }
-
-      router.push("/consultations");
     }
     setSubmitting(false);
   };
