@@ -15,3 +15,42 @@ export interface MedicationSnapshot {
   type: string;
   dosage: string | null;
 }
+
+export interface Medication {
+  id: string;
+  name: string;
+  type: string;
+  category: MedCategory;
+  dosage: string | null;
+  frequency: string | null;
+  notes: string | null;
+  is_active: boolean;
+  start_date: string | null;
+  end_date: string | null;
+  archived: boolean;
+}
+
+export interface AiResult {
+  name: string;
+  type: string;
+  dosage: string;
+  frequency: string;
+}
+
+export interface MedicationFormData {
+  name: string;
+  category: MedCategory;
+  dosage: string;
+  dailyCount: string;
+  times: string[];
+  notes: string;
+  startDate: string;
+  endDate: string;
+}
+
+export interface SavedReport {
+  id: string;
+  title: string | null;
+  messages: { role: string; content: string }[];
+  created_at: string;
+}
