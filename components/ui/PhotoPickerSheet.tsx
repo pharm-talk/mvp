@@ -5,8 +5,8 @@ import { Camera, ImagePlus } from "lucide-react";
 
 interface PhotoPickerSheetProps {
   onClose: () => void;
-  cameraInputRef: RefObject<HTMLInputElement | null>;
-  albumInputRef: RefObject<HTMLInputElement | null>;
+  cameraInputRef: RefObject<HTMLInputElement>;
+  albumInputRef: RefObject<HTMLInputElement>;
 }
 
 export default function PhotoPickerSheet({

@@ -18,8 +18,8 @@ interface ConsultImageSectionProps {
   onImageAdd: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onRemoveImage: (index: number) => void;
   onRemoveExtracted: (index: number) => void;
-  cameraInputRef: RefObject<HTMLInputElement | null>;
-  albumInputRef: RefObject<HTMLInputElement | null>;
+  cameraInputRef: RefObject<HTMLInputElement>;
+  albumInputRef: RefObject<HTMLInputElement>;
 }
 
 export default function ConsultImageSection({

@@ -12,8 +12,8 @@ interface MedicationFormProps {
   saving: boolean;
   analyzing: boolean;
   showPhotoSheet: boolean;
-  cameraInputRef: React.RefObject<HTMLInputElement | null>;
-  albumInputRef: React.RefObject<HTMLInputElement | null>;
+  cameraInputRef: React.RefObject<HTMLInputElement>;
+  albumInputRef: React.RefObject<HTMLInputElement>;
   onUpdateForm: <K extends keyof MedicationFormState>(key: K, value: MedicationFormState[K]) => void;
   onSave: () => void;
   onReset: () => void;

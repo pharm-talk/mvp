@@ -22,8 +22,8 @@ interface ConsultChatOverlayProps {
   onSend: () => void;
   onApplySuggestion: () => void;
   onApplyConversationSummary: () => void;
-  chatEndRef: RefObject<HTMLDivElement | null>;
-  chatInputRef: RefObject<HTMLInputElement | null>;
+  chatEndRef: RefObject<HTMLDivElement>;
+  chatInputRef: RefObject<HTMLInputElement>;
 }
 
 export default function ConsultChatOverlay({
