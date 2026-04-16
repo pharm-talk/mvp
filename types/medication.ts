@@ -48,6 +48,20 @@ export interface MedicationFormData {
   endDate: string;
 }
 
+export interface MedicationLog {
+  id: string;
+  medication_id: string;
+  taken_at: string;
+  status: "taken" | "skipped";
+}
+
+export interface DailyStats {
+  date: string; // YYYY-MM-DD
+  total: number;
+  taken: number;
+  skipped: number;
+}
+
 export interface SavedReport {
   id: string;
   title: string | null;

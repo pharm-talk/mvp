@@ -10,8 +10,10 @@ import {
 } from "lucide-react";
 import BottomNav from "@/components/layout/BottomNav";
 import { useMedications } from "@/hooks/useMedications";
+import { useMedicationLogs } from "@/hooks/useMedicationLogs";
 import MedicationForm from "@/components/features/medications/MedicationForm";
 import MedicationSection from "@/components/features/medications/MedicationSection";
+import TodayChecklist from "@/components/features/medications/TodayChecklist";
 import AiResultsScreen from "@/components/features/medications/AiResultsScreen";
 import PhotoBottomSheet from "@/components/features/medications/PhotoBottomSheet";
 import SupplementReports from "@/components/features/medications/SupplementReports";
@@ -26,6 +28,7 @@ import {
 export default function MedicationsPage() {
   const router = useRouter();
   const med = useMedications();
+  const logs = useMedicationLogs(med.medications);
 
   /* === AI 분석 결과 선택 화면 === */
   if (med.showAiResults && med.aiResults.length > 0) {
@@ -137,6 +140,21 @@ export default function MedicationsPage() {
               archivedCount={med.archivedMeds.length}
               countByCategory={med.countByCategory}
             />
+
+            {!med.showArchived && !logs.loading && (
+              <TodayChecklist
+                medications={med.medications}
+                takenCount={logs.takenCount}
+                totalCount={logs.totalCount}
+                todayProgress={logs.todayProgress}
+                weeklyStats={logs.weeklyStats}
+                getLogForMedication={logs.getLogForMedication}
+                getLastTakenTime={logs.getLastTakenTime}
+                onToggleTaken={logs.toggleTaken}
+                onSkip={logs.skipMedication}
+              />
+            )}
+
             <CategoryTabs
               activeTab={med.activeTab}
               showArchived={med.showArchived}
@@ -165,6 +183,8 @@ export default function MedicationsPage() {
                 onDelete={med.handleDelete}
                 onArchive={med.handleArchive}
                 onUnarchive={med.handleUnarchive}
+                getLastTakenTime={logs.getLastTakenTime}
+                getStreak={logs.getStreak}
               />
             ) : (
               <EmptyCategoryState activeTab={med.activeTab} showArchived={med.showArchived} />

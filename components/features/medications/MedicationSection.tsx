@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash2, ChevronRight, Archive } from "lucide-react";
+import { Pencil, Trash2, ChevronRight, Archive, Flame } from "lucide-react";
 import type { MedCategory, Medication } from "@/types/medication";
 import { getCategoryConfig } from "./constants";
 import PrescriptionProgressBar from "./PrescriptionProgressBar";
@@ -16,6 +16,8 @@ interface MedicationSectionProps {
   onDelete: (id: string) => void;
   onArchive: (id: string) => void;
   onUnarchive: (id: string) => void;
+  getLastTakenTime?: (id: string) => string | null;
+  getStreak?: (id: string) => number;
 }
 
 export default function MedicationSection({
@@ -29,6 +31,8 @@ export default function MedicationSection({
   onDelete,
   onArchive,
   onUnarchive,
+  getLastTakenTime,
+  getStreak,
 }: MedicationSectionProps) {
   const config = getCategoryConfig(category);
   const CatIcon = config.Icon;
@@ -59,6 +63,26 @@ export default function MedicationSection({
                     {[med.dosage, med.frequency].filter(Boolean).join(" · ") ||
                       "복용 정보 미입력"}
                   </p>
+                  {!showArchived && getLastTakenTime && getStreak && (() => {
+                    const lastTime = getLastTakenTime(med.id);
+                    const streak = getStreak(med.id);
+                    if (!lastTime && streak === 0) return null;
+                    return (
+                      <div className="flex items-center gap-2 mt-1">
+                        {lastTime && (
+                          <span className="text-[0.6875rem] text-brand/70">
+                            오늘 {lastTime} 복용
+                          </span>
+                        )}
+                        {streak >= 2 && (
+                          <span className="inline-flex items-center gap-0.5 text-[0.6875rem] text-orange-500 font-medium">
+                            <Flame className="w-3 h-3" />
+                            {streak}일 연속
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {category === "prescription" && !showArchived && (
                     <PrescriptionProgressBar
                       startDate={med.start_date}
