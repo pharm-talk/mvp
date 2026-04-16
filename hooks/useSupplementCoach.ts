@@ -209,11 +209,12 @@ export function useSupplementCoach() {
   }, [loadInitialData]);
 
   /* ── 메시지에 질문+답변 추가 헬퍼 ── */
-  const appendQA = (question: string, answer: string) => {
+  const appendQA = (question: string, answer: string, feedback?: string) => {
     setMessages((prev) => [
       ...prev,
       { role: "assistant" as const, content: question },
       { role: "user" as const, content: answer },
+      ...(feedback ? [{ role: "assistant" as const, content: feedback }] : []),
     ]);
   };
 
@@ -267,7 +268,7 @@ export function useSupplementCoach() {
       case 2: {
         // 단일선택 → 바로 진행
         const questionText = currentStepInfo.question;
-        appendQA(questionText, chip);
+        appendQA(questionText, chip, "알겠어요! 그럼 몇 가지만 더 여쭤볼게요.");
 
         if (chip === "없어요, 그대로예요") {
           setMedicationDrawerConfirmed(true);
@@ -325,7 +326,7 @@ export function useSupplementCoach() {
       case 6: {
         // 복용 편의 단일선택 → TURN 7 → 분석 시작
         const questionText = currentStepInfo.question;
-        appendQA(questionText, chip);
+        appendQA(questionText, chip, "좋아요! 지금까지 알려주신 정보로 맞춤 분석할게요 🔍");
         setDosagePreference(chip);
         setCurrentTurn(7);
         break;
@@ -339,8 +340,7 @@ export function useSupplementCoach() {
   const handleNext = () => {
     if (currentTurn === 1 && healthGoals.length > 0) {
       const questionText = currentStepInfo.question;
-      appendQA(questionText, healthGoals.join(", "));
-      // 약 서랍 확인 턴으로
+      appendQA(questionText, healthGoals.join(", "), `좋아요! ${healthGoals[0]}${healthGoals.length > 1 ? ` 외 ${healthGoals.length - 1}개` : ""} 목표로 분석할게요.`);
       setCurrentTurn(2);
     }
   };
