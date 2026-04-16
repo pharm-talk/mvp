@@ -16,22 +16,28 @@ export function usePharmacistConsultation(id: string) {
   const [followupAnswer, setFollowupAnswer] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchConsultation = useCallback(async () => {
     try {
-      const { data } = await supabase
+      setError(null);
+      const { data, error: fetchError } = await supabase
         .from("consultations")
         .select(CONSULTATION_COLUMNS)
         .eq("id", id)
         .single();
-      if (data) {
+      if (fetchError) {
+        console.error("[usePharmacistConsultation] fetch failed", fetchError);
+        setError("상담 정보를 불러오지 못했어요. 다시 시도해주세요.");
+      } else if (data) {
         setConsultation(data);
         if (data.ai_report && !data.verified_at) {
           setEditedAnswer(data.ai_report);
         }
       }
-    } catch {
-      // fetch failed
+    } catch (e) {
+      console.error("[usePharmacistConsultation] fetch threw", e);
+      setError("상담 정보를 불러오지 못했어요. 다시 시도해주세요.");
     } finally {
       setLoading(false);
     }
@@ -47,7 +53,8 @@ export function usePharmacistConsultation(id: string) {
     } = await supabase.auth.getUser();
     if (!user || !consultation) return;
     setSubmitting(true);
-    await supabase
+    setError(null);
+    const { error: updateError } = await supabase
       .from("consultations")
       .update({
         pharmacist_id: user.id,
@@ -55,15 +62,22 @@ export function usePharmacistConsultation(id: string) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", consultation.id);
-    setConsultation((prev) =>
-      prev ? { ...prev, pharmacist_id: user.id, status: "assigned" } : null
-    );
+
+    if (updateError) {
+      console.error("[usePharmacistConsultation] assign failed", updateError);
+      setError("상담 배정에 실패했어요. 다시 시도해주세요.");
+    } else {
+      setConsultation((prev) =>
+        prev ? { ...prev, pharmacist_id: user.id, status: "assigned" } : null
+      );
+    }
     setSubmitting(false);
   };
 
   const handleApproveAsIs = async () => {
     if (!consultation) return;
     setSubmitting(true);
+    setError(null);
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -73,7 +87,7 @@ export function usePharmacistConsultation(id: string) {
     }
 
     const now = new Date().toISOString();
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from("consultations")
       .update({
         answer: consultation.ai_report,
@@ -85,7 +99,10 @@ export function usePharmacistConsultation(id: string) {
       })
       .eq("id", consultation.id);
 
-    if (!error) {
+    if (updateError) {
+      console.error("[usePharmacistConsultation] approve failed", updateError);
+      setError("검증 처리에 실패했어요. 다시 시도해주세요.");
+    } else {
       setConsultation((prev) =>
         prev
           ? {
@@ -105,6 +122,7 @@ export function usePharmacistConsultation(id: string) {
   const handleSubmitEdited = async () => {
     if (!editedAnswer.trim() || !consultation) return;
     setSubmitting(true);
+    setError(null);
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -114,7 +132,7 @@ export function usePharmacistConsultation(id: string) {
     }
 
     const now = new Date().toISOString();
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from("consultations")
       .update({
         answer: editedAnswer.trim(),
@@ -126,7 +144,13 @@ export function usePharmacistConsultation(id: string) {
       })
       .eq("id", consultation.id);
 
-    if (!error) {
+    if (updateError) {
+      console.error(
+        "[usePharmacistConsultation] submit edited failed",
+        updateError
+      );
+      setError("답변 저장에 실패했어요. 다시 시도해주세요.");
+    } else {
       setConsultation((prev) =>
         prev
           ? {
@@ -147,7 +171,8 @@ export function usePharmacistConsultation(id: string) {
   const handleFollowupAnswer = async () => {
     if (!followupAnswer.trim() || !consultation) return;
     setSubmitting(true);
-    const { error } = await supabase
+    setError(null);
+    const { error: updateError } = await supabase
       .from("consultations")
       .update({
         followup_answer: followupAnswer.trim(),
@@ -155,7 +180,14 @@ export function usePharmacistConsultation(id: string) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", consultation.id);
-    if (!error) {
+
+    if (updateError) {
+      console.error(
+        "[usePharmacistConsultation] followup failed",
+        updateError
+      );
+      setError("답변 저장에 실패했어요. 다시 시도해주세요.");
+    } else {
       setConsultation((prev) =>
         prev
           ? { ...prev, followup_answer: followupAnswer.trim(), status: "closed" }
@@ -169,6 +201,7 @@ export function usePharmacistConsultation(id: string) {
   return {
     consultation,
     loading,
+    error,
     editedAnswer,
     setEditedAnswer,
     followupAnswer,
@@ -180,5 +213,6 @@ export function usePharmacistConsultation(id: string) {
     handleApproveAsIs,
     handleSubmitEdited,
     handleFollowupAnswer,
+    refetch: fetchConsultation,
   };
 }

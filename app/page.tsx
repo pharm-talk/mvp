@@ -203,7 +203,7 @@ export default function HomePage() {
       {/* ─── Header ─── */}
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
-          <span className="text-[1.25rem] font-extrabold tracking-tight text-gray-900">팜톡</span>
+          <img src="/logo-flat-logos/png-512.png" alt="팜톡" className="h-20" />
           <div className="flex items-center gap-1">
             <button type="button" onClick={() => router.push("/notifications")} className="relative w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center active:bg-gray-100 transition-colors" aria-label="알림">
               <Bell className="w-[1.2rem] h-[1.2rem] text-gray-500" />

@@ -63,6 +63,8 @@ export function PatientInfoCard({ health, meds }: PatientInfoCardProps) {
       <button
         type="button"
         onClick={() => setShowPatientInfo(!showPatientInfo)}
+        aria-expanded={showPatientInfo}
+        aria-label={showPatientInfo ? "환자 정보 접기" : "환자 정보 펼치기"}
         className="w-full px-4 py-3 flex items-center justify-between active:bg-gray-50 transition-colors"
       >
         <div className="flex items-center gap-2.5">

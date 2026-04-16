@@ -154,7 +154,7 @@ export function AnswerEditor({
   submitLabel,
 }: AnswerEditorProps) {
   return (
-    <div className="bg-white rounded-2xl shadow-card overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-card overflow-hidden pb-[env(safe-area-inset-bottom)]">
       <div className="px-4 pt-4 pb-3 border-b border-gray-50">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-brand-light flex items-center justify-center">
@@ -171,8 +171,15 @@ export function AnswerEditor({
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onFocus={(e) => {
+            const target = e.target;
+            setTimeout(() => {
+              target.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, 300);
+          }}
           placeholder={placeholder}
           rows={rows}
+          aria-label="약사 답변 입력"
           className="w-full rounded-xl border border-gray-200 px-4 py-3.5 text-base text-gray-900 placeholder:text-gray-300 placeholder:leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none"
         />
         {onCancel && (
@@ -250,7 +257,7 @@ export function FollowupEditor({
   onSubmit,
 }: FollowupEditorProps) {
   return (
-    <div className="bg-white rounded-2xl shadow-card overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-card overflow-hidden pb-[env(safe-area-inset-bottom)]">
       <div className="px-4 pt-4 pb-3 border-b border-gray-50">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
@@ -270,7 +277,14 @@ export function FollowupEditor({
           placeholder="추가 질문에 대한 답변을 작성해주세요."
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onFocus={(e) => {
+            const target = e.target;
+            setTimeout(() => {
+              target.scrollIntoView({ behavior: "smooth", block: "center" });
+            }, 300);
+          }}
           rows={5}
+          aria-label="추가 질문 답변 입력"
           className="w-full rounded-xl border border-gray-200 px-4 py-3.5 text-base text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-all duration-150 resize-none"
         />
 

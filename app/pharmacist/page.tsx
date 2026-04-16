@@ -3,15 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { formatDateFull } from "@/lib/format";
 import {
   ShieldCheck,
-  Clock,
-  CheckCircle2,
-  MessageCircle,
   ChevronRight,
   LogOut,
   Pill,
   Inbox,
+  AlertTriangle,
 } from "lucide-react";
 
 type TabKey = "pending" | "mine" | "answered";
@@ -41,19 +40,40 @@ export default function PharmacistDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>("pending");
   const [userId, setUserId] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    setUserId(user.id);
+    setLoading(true);
+    setError(null);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      setUserId(user.id);
 
-    const { data } = await supabase
-      .from("consultations")
-      .select("id, content, type, status, pharmacist_id, created_at, health_snapshot, medications_snapshot")
-      .order("created_at", { ascending: false });
+      const { data, error: fetchError } = await supabase
+        .from("consultations")
+        .select(
+          "id, content, type, status, pharmacist_id, created_at, health_snapshot, medications_snapshot"
+        )
+        .order("created_at", { ascending: false });
 
-    if (data) setConsultations(data);
-    setLoading(false);
+      if (fetchError) {
+        console.error("[PharmacistDashboard] fetch failed", fetchError);
+        setError("상담 목록을 불러오지 못했어요.");
+      } else if (data) {
+        setConsultations(data);
+      }
+    } catch (e) {
+      console.error("[PharmacistDashboard] fetch threw", e);
+      setError("상담 목록을 불러오지 못했어요.");
+    } finally {
+      setLoading(false);
+    }
   }, [supabase]);
 
   useEffect(() => {
@@ -61,7 +81,11 @@ export default function PharmacistDashboard() {
   }, [fetchData]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error("[PharmacistDashboard] signOut failed", e);
+    }
     router.push("/login");
   };
 
@@ -75,15 +99,6 @@ export default function PharmacistDashboard() {
   const mineCount = consultations.filter(
     (c) => c.pharmacist_id === userId && c.status === "assigned"
   ).length;
-
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const month = d.getMonth() + 1;
-    const day = d.getDate();
-    const hours = d.getHours();
-    const mins = d.getMinutes().toString().padStart(2, "0");
-    return `${month}월 ${day}일 ${hours}:${mins}`;
-  };
 
   const getTimeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -112,7 +127,7 @@ export default function PharmacistDashboard() {
             <button
               type="button"
               onClick={() => router.push("/")}
-              className="h-7 px-2.5 rounded-full bg-blue-100 text-blue-700 text-[0.625rem] font-bold active:bg-blue-200 transition-colors"
+              className="h-9 px-3 rounded-full bg-blue-100 text-blue-700 text-xs font-bold active:bg-blue-200 transition-colors"
             >
               유저뷰
             </button>
@@ -185,6 +200,22 @@ export default function PharmacistDashboard() {
               </div>
             ))}
           </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center pt-20 px-5">
+            <div className="w-16 h-16 rounded-2xl bg-white shadow-card flex items-center justify-center mb-4">
+              <AlertTriangle className="w-8 h-8 text-amber-400" />
+            </div>
+            <p className="text-sm text-gray-500 mb-4 text-center break-words">
+              {error}
+            </p>
+            <button
+              type="button"
+              onClick={fetchData}
+              className="h-10 px-5 rounded-full bg-brand text-white text-sm font-semibold active:brightness-95 transition-all duration-150"
+            >
+              다시 시도
+            </button>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center pt-20 px-5">
             <div className="w-16 h-16 rounded-2xl bg-white shadow-card flex items-center justify-center mb-4">
@@ -228,7 +259,7 @@ export default function PharmacistDashboard() {
                     </div>
                     <ChevronRight className="w-4 h-4 text-gray-200" />
                   </div>
-                  <p className="text-[0.9375rem] font-medium text-gray-900 line-clamp-2 mb-2">
+                  <p className="text-[0.9375rem] font-medium text-gray-900 line-clamp-2 mb-2 break-words">
                     {c.content}
                   </p>
                   <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -238,7 +269,7 @@ export default function PharmacistDashboard() {
                         복용약 {medCount}개
                       </span>
                     )}
-                    <span>{formatDate(c.created_at)}</span>
+                    <span>{formatDateFull(c.created_at)}</span>
                   </div>
                 </button>
               );

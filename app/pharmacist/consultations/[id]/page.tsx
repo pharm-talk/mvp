@@ -5,6 +5,8 @@ import {
   ArrowLeft,
   Clock,
   CheckCircle2,
+  PenLine,
+  AlertTriangle,
 } from "lucide-react";
 import { Robot, ShieldCheck } from "@phosphor-icons/react";
 import { usePharmacistConsultation } from "@/hooks/usePharmacistConsultation";
@@ -15,11 +17,7 @@ import {
   AnswerEditor,
   FollowupEditor,
 } from "@/components/features/pharmacist/PharmacistAnswerEditor";
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
-  return `${d.getFullYear()}.${(d.getMonth() + 1).toString().padStart(2, "0")}.${d.getDate().toString().padStart(2, "0")} ${d.getHours()}:${d.getMinutes().toString().padStart(2, "0")}`;
-}
+import { formatDateFull } from "@/lib/format";
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; style: string }> = {
@@ -52,6 +50,7 @@ export default function PharmacistConsultationDetail() {
   const {
     consultation,
     loading,
+    error,
     editedAnswer,
     setEditedAnswer,
     followupAnswer,
@@ -63,12 +62,42 @@ export default function PharmacistConsultationDetail() {
     handleApproveAsIs,
     handleSubmitEdited,
     handleFollowupAnswer,
+    refetch,
   } = usePharmacistConsultation(id);
 
   if (loading) {
     return (
       <div className="min-h-dvh bg-white flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (error && !consultation) {
+    return (
+      <div className="min-h-dvh bg-white flex flex-col items-center justify-center px-5">
+        <div className="w-14 h-14 rounded-2xl bg-amber-50 flex items-center justify-center mb-4">
+          <AlertTriangle className="w-7 h-7 text-amber-500" />
+        </div>
+        <p className="text-sm text-gray-600 mb-4 text-center break-words">
+          {error}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="h-10 px-5 rounded-full bg-brand text-white text-sm font-semibold active:brightness-95 transition-all duration-150"
+          >
+            다시 시도
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/pharmacist")}
+            className="h-10 px-5 rounded-full bg-gray-100 text-gray-700 text-sm font-semibold active:bg-gray-200 transition-all duration-150"
+          >
+            대시보드로
+          </button>
+        </div>
       </div>
     );
   }
@@ -91,6 +120,7 @@ export default function PharmacistConsultationDetail() {
   const meds = consultation.medications_snapshot ?? [];
   const isPending = consultation.status === "pending";
   const isAssigned = consultation.status === "assigned";
+  const isAnswered = consultation.status === "answered";
   const isVerified = !!consultation.verified_at;
   const hasAiReport = !!consultation.ai_report;
   const needsVerification = hasAiReport && !isVerified && (isAssigned || isPending);
@@ -103,7 +133,7 @@ export default function PharmacistConsultationDetail() {
 
   return (
     <div className="min-h-dvh bg-gray-50">
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100/60">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-gray-100/60">
         <div className="flex items-center justify-between px-5 h-14 max-w-lg mx-auto">
           <button
             type="button"
@@ -128,17 +158,26 @@ export default function PharmacistConsultationDetail() {
               <StatusBadge status={consultation.status} />
             </div>
             <span className="text-xs text-gray-300">
-              {formatDate(consultation.created_at)}
+              {formatDateFull(consultation.created_at)}
             </span>
           </div>
         </div>
+
+        {error && (
+          <div className="mx-5 mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700 break-words leading-relaxed">
+              {error}
+            </p>
+          </div>
+        )}
 
         <div className="px-5 pt-4 space-y-3">
           <PatientInfoCard health={consultation.health_snapshot} meds={meds} />
 
           <div className="bg-white rounded-2xl shadow-card p-4">
             <p className="text-xs font-semibold text-gray-400 mb-2">환자 상담 내용</p>
-            <p className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap">
+            <p className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap break-words">
               {consultation.content}
             </p>
           </div>
@@ -153,13 +192,13 @@ export default function PharmacistConsultationDetail() {
                   </div>
                   {consultation.ai_report_at && (
                     <span className="text-xs text-gray-400">
-                      {formatDate(consultation.ai_report_at)}
+                      {formatDateFull(consultation.ai_report_at)}
                     </span>
                   )}
                 </div>
               </div>
               <div className="px-4 py-4">
-                <p className="text-sm text-gray-700 leading-[1.8] whitespace-pre-wrap">
+                <p className="text-sm text-gray-700 leading-[1.8] whitespace-pre-wrap break-words">
                   {consultation.ai_report}
                 </p>
               </div>
@@ -205,7 +244,7 @@ export default function PharmacistConsultationDetail() {
             />
           )}
 
-          {consultation.answer && isVerified && (
+          {consultation.answer && isVerified && !editMode && (
             <div className="bg-white rounded-2xl shadow-card p-4 border-l-4 border-brand">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -214,16 +253,30 @@ export default function PharmacistConsultationDetail() {
                 </div>
                 {consultation.verified_at && (
                   <span className="text-xs text-gray-300">
-                    {formatDate(consultation.verified_at)}
+                    {formatDateFull(consultation.verified_at)}
                   </span>
                 )}
               </div>
               {consultation.answer !== consultation.ai_report ? (
-                <p className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap">
+                <p className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap break-words">
                   {consultation.answer}
                 </p>
               ) : (
                 <p className="text-sm text-gray-500">AI 리포트를 그대로 승인했습니다.</p>
+              )}
+
+              {isAnswered && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditedAnswer(consultation.answer ?? "");
+                    setEditMode(true);
+                  }}
+                  className="mt-3 w-full h-10 rounded-xl bg-gray-100 text-gray-700 font-semibold text-sm flex items-center justify-center gap-2 active:bg-gray-200 transition-colors duration-150"
+                >
+                  <PenLine className="w-3.5 h-3.5" />
+                  답변 수정
+                </button>
               )}
             </div>
           )}
@@ -231,7 +284,7 @@ export default function PharmacistConsultationDetail() {
           {consultation.followup_question && (
             <div className="bg-white rounded-2xl shadow-card p-4">
               <p className="text-xs font-semibold text-gray-400 mb-2">환자 추가 질문</p>
-              <p className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap">
+              <p className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap break-words">
                 {consultation.followup_question}
               </p>
             </div>
@@ -240,7 +293,7 @@ export default function PharmacistConsultationDetail() {
           {consultation.followup_answer && (
             <div className="bg-white rounded-2xl shadow-card p-4 border-l-4 border-brand">
               <p className="text-xs font-semibold text-brand mb-2">추가 답변</p>
-              <p className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap">
+              <p className="text-[0.9375rem] text-gray-900 leading-relaxed whitespace-pre-wrap break-words">
                 {consultation.followup_answer}
               </p>
             </div>
