@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import BottomNav from "@/components/layout/BottomNav";
@@ -55,6 +55,14 @@ const STATUS_MAP = {
 };
 
 export default function ConsultationsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh bg-surface" />}>
+      <ConsultationsContent />
+    </Suspense>
+  );
+}
+
+function ConsultationsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
