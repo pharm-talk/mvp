@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { MedicationInfo } from "@/types/medication";
 import type { ProfileInfo } from "@/types/profile";
+import {
+  TURN1_CHIPS,
+  TURN2_CHIPS,
+  TURN6_CHIPS,
+  GOAL_FOLLOW_UP_QUESTIONS,
+  MEDICATION_BASED_QUESTIONS,
+} from "@/constants/supplement-flow";
 
 /* ── Types ── */
 
@@ -15,54 +22,6 @@ export interface ChatMessage {
   content: string;
   isReport?: boolean;
 }
-
-export interface IntakeStep {
-  question: string;
-  chips: string[];
-  multiSelect: boolean;
-}
-
-/* ── Constants ── */
-
-export const INTAKE_STEPS: IntakeStep[] = [
-  {
-    question: "안녕하세요! 영양제 코디네이터예요 💊\n어떤 건강 목표가 있으세요?",
-    chips: [
-      "피로 개선",
-      "피부 관리",
-      "면역력 강화",
-      "뼈·관절",
-      "수면 개선",
-      "소화 개선",
-      "눈 건강",
-      "기타",
-    ],
-    multiSelect: true,
-  },
-  {
-    question: "좋아요! 식습관은 어떠세요?",
-    chips: [
-      "규칙적으로 잘 먹어요",
-      "불규칙해요",
-      "외식이 많아요",
-      "채식 위주예요",
-      "다이어트 중이에요",
-    ],
-    multiSelect: false,
-  },
-  {
-    question: "혹시 불편한 증상이 있으세요?",
-    chips: [
-      "만성 피로",
-      "소화 불량",
-      "불면·수면 장애",
-      "피부 트러블",
-      "관절 통증",
-      "없어요",
-    ],
-    multiSelect: true,
-  },
-];
 
 export const QUICK_SUGGESTIONS = [
   "추천 영양제 더 알려줘",
@@ -80,11 +39,24 @@ export function useSupplementCoach() {
 
   /* State */
   const [phase, setPhase] = useState<Phase>("intake");
-  const [intakeStep, setIntakeStep] = useState(0);
+  const [currentTurn, setCurrentTurn] = useState(1);
+
+  // Turn 1: 건강 목표
   const [healthGoals, setHealthGoals] = useState<string[]>([]);
-  const [lifestyle, setLifestyle] = useState("");
-  const [symptoms, setSymptoms] = useState<string[]>([]);
-  const [symptomText, setSymptomText] = useState("");
+  // Turn 2: 약 서랍 확인
+  const [medicationDrawerConfirmed, setMedicationDrawerConfirmed] = useState(false);
+  const [medicationDrawerChanges, setMedicationDrawerChanges] = useState("");
+  // Turn 3~5: 꼬리질문 답변
+  const [goalAnswers, setGoalAnswers] = useState<Record<string, string>>({});
+  const [currentGoalQuestionIndex, setCurrentGoalQuestionIndex] = useState(0);
+  // 약 서랍 기반 추가 질문
+  const [medicationBasedQuestion, setMedicationBasedQuestion] = useState<{
+    question: string;
+    chips: string[];
+  } | null>(null);
+  const [askedMedicationQuestion, setAskedMedicationQuestion] = useState(false);
+  // Turn 6: 복용 편의
+  const [dosagePreference, setDosagePreference] = useState("");
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -107,19 +79,104 @@ export function useSupplementCoach() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, loading, phase, intakeStep, report, scrollToBottom]);
+  }, [messages, loading, phase, currentTurn, report, scrollToBottom]);
 
-  /* Current intake selections based on step */
-  const currentSelections =
-    intakeStep === 0
-      ? healthGoals
-      : intakeStep === 1
-        ? lifestyle
-          ? [lifestyle]
-          : []
-        : symptoms;
+  /* ── 현재 턴에 맞는 질문/칩 계산 ── */
 
-  const currentStep = INTAKE_STEPS[intakeStep] as IntakeStep | undefined;
+  // 첫 번째 건강 목표의 꼬리질문 목록
+  const followUpQuestions = useMemo(() => {
+    if (healthGoals.length === 0) return [];
+    const primaryGoal = healthGoals[0];
+    return GOAL_FOLLOW_UP_QUESTIONS[primaryGoal] ?? [];
+  }, [healthGoals]);
+
+  // 약 서랍 기반 매칭 질문 찾기
+  const findMedicationBasedQuestion = useCallback(() => {
+    if (medications.length === 0) return null;
+    const medNames = medications.map((m) => m.name.toLowerCase()).join(" ");
+    for (const rule of MEDICATION_BASED_QUESTIONS) {
+      if (medNames.includes(rule.keyword.toLowerCase())) {
+        return { question: rule.question, chips: rule.chips };
+      }
+    }
+    return null;
+  }, [medications]);
+
+  const getCurrentQuestionAndChips = useCallback((): {
+    question: string;
+    chips: string[];
+    multiSelect: boolean;
+  } => {
+    switch (currentTurn) {
+      case 1:
+        return {
+          question:
+            "안녕하세요! 영양제 코디네이터예요 💊\n어떤 건강 목표가 있으세요?",
+          chips: [...TURN1_CHIPS],
+          multiSelect: true,
+        };
+      case 2: {
+        const medCount = medications.filter((m) => m.type === "medication").length;
+        const suppCount = medications.filter((m) => m.type === "supplement").length;
+        const parts: string[] = [];
+        if (medCount > 0) parts.push(`약 ${medCount}개`);
+        if (suppCount > 0) parts.push(`영양제 ${suppCount}개`);
+        const summary = parts.length > 0 ? parts.join(", ") : "";
+        const prefix = summary
+          ? `약 서랍에 ${summary} 등록되어 있네요!\n`
+          : "";
+        return {
+          question: `${prefix}최근에 바뀐 게 있거나 빠진 것 있으세요?`,
+          chips: [...TURN2_CHIPS],
+          multiSelect: false,
+        };
+      }
+      case 3:
+      case 4:
+      case 5: {
+        // 꼬리질문 진행 중인지 확인
+        if (currentGoalQuestionIndex < followUpQuestions.length) {
+          const q = followUpQuestions[currentGoalQuestionIndex];
+          return {
+            question: q.question,
+            chips: q.chips,
+            multiSelect: false,
+          };
+        }
+        // 꼬리질문 다 끝났으면 약 서랍 기반 질문
+        if (!askedMedicationQuestion) {
+          const medQ = medicationBasedQuestion ?? findMedicationBasedQuestion();
+          if (medQ) {
+            return {
+              question: medQ.question,
+              chips: medQ.chips,
+              multiSelect: false,
+            };
+          }
+        }
+        // 아무 질문도 없으면 빈 상태 (바로 TURN 6으로 진행됨)
+        return { question: "", chips: [], multiSelect: false };
+      }
+      case 6:
+        return {
+          question: "하루에 몇 알 정도 괜찮으세요?",
+          chips: [...TURN6_CHIPS],
+          multiSelect: false,
+        };
+      default:
+        return { question: "", chips: [], multiSelect: false };
+    }
+  }, [
+    currentTurn,
+    medications,
+    currentGoalQuestionIndex,
+    followUpQuestions,
+    askedMedicationQuestion,
+    medicationBasedQuestion,
+    findMedicationBasedQuestion,
+  ]);
+
+  const currentStepInfo = getCurrentQuestionAndChips();
 
   /* ── Initial data load ── */
   const loadInitialData = useCallback(async () => {
@@ -151,86 +208,153 @@ export function useSupplementCoach() {
     loadInitialData();
   }, [loadInitialData]);
 
-  /* ── Advance to next step ── */
-  const advanceFromStep = (
-    stepIdx: number,
-    selectedValues: string[]
-  ) => {
+  /* ── 메시지에 질문+답변 추가 헬퍼 ── */
+  const appendQA = (question: string, answer: string) => {
     setMessages((prev) => [
       ...prev,
-      {
-        role: "assistant" as const,
-        content: INTAKE_STEPS[stepIdx].question,
-      },
-      {
-        role: "user" as const,
-        content: selectedValues.join(", "),
-      },
+      { role: "assistant" as const, content: question },
+      { role: "user" as const, content: answer },
     ]);
-
-    const nextStep = stepIdx + 1;
-    if (nextStep < INTAKE_STEPS.length) {
-      setIntakeStep(nextStep);
-    } else {
-      startAnalysis(
-        stepIdx === 0 ? selectedValues : healthGoals,
-        stepIdx === 1 ? selectedValues[0] : lifestyle,
-        stepIdx === 2 ? selectedValues : symptoms
-      );
-    }
   };
+
+  /* ── 꼬리질문/약 서랍 질문 끝 → 다음 턴 이동 ── */
+  const advanceFromFollowUp = useCallback(() => {
+    // 꼬리질문이 아직 남아있으면 다음 꼬리질문
+    // (currentGoalQuestionIndex는 이미 증가된 상태)
+    // 이 함수는 칩 선택 후 호출되므로, 다음 질문이 있는지 체크
+    const nextIdx = currentGoalQuestionIndex + 1;
+
+    if (nextIdx < followUpQuestions.length) {
+      // 다음 꼬리질문으로
+      setCurrentGoalQuestionIndex(nextIdx);
+      // 턴 번호도 적절히 올림 (3→4→5)
+      setCurrentTurn((prev) => Math.min(prev + 1, 5) as number);
+      return;
+    }
+
+    // 꼬리질문 끝 → 약 서랍 기반 질문 확인
+    if (!askedMedicationQuestion) {
+      const medQ = findMedicationBasedQuestion();
+      if (medQ) {
+        setMedicationBasedQuestion(medQ);
+        setCurrentGoalQuestionIndex(nextIdx); // 꼬리질문 범위 넘김
+        setCurrentTurn((prev) => Math.min(prev + 1, 5) as number);
+        return;
+      }
+    }
+
+    // 모든 질문 완료 → TURN 6
+    setCurrentTurn(6);
+  }, [
+    currentGoalQuestionIndex,
+    followUpQuestions.length,
+    askedMedicationQuestion,
+    findMedicationBasedQuestion,
+  ]);
 
   /* ── Chip toggle handler ── */
   const handleChipToggle = (chip: string) => {
-    if (!currentStep) return;
-
-    if (currentStep.multiSelect) {
-      if (intakeStep === 0) {
+    switch (currentTurn) {
+      case 1: {
+        // 다중선택 토글
         setHealthGoals((prev) =>
           prev.includes(chip)
             ? prev.filter((c) => c !== chip)
             : [...prev, chip]
         );
-      } else if (intakeStep === 2) {
-        if (chip === "없어요") {
-          setSymptoms(["없어요"]);
-        } else {
-          setSymptoms((prev) => {
-            const without = prev.filter((c) => c !== "없어요");
-            return without.includes(chip)
-              ? without.filter((c) => c !== chip)
-              : [...without, chip];
-          });
-        }
+        break;
       }
-    } else {
-      setLifestyle(chip);
-      advanceFromStep(1, [chip]);
+      case 2: {
+        // 단일선택 → 바로 진행
+        const questionText = currentStepInfo.question;
+        appendQA(questionText, chip);
+
+        if (chip === "없어요, 그대로예요") {
+          setMedicationDrawerConfirmed(true);
+        }
+        // "추가할 게 있어요" → 텍스트 입력 대기는 별도 처리
+        // 일단 TURN 3으로 진행
+        if (chip === "추가할 게 있어요") {
+          // 텍스트 입력을 기다리지 않고 바로 다음으로
+          // (사용자가 텍스트로 입력하면 handleIntakeTextInput에서 처리)
+          setMedicationDrawerConfirmed(false);
+        }
+
+        // 꼬리질문이 있으면 TURN 3, 없으면 TURN 6
+        if (followUpQuestions.length > 0) {
+          setCurrentTurn(3);
+          setCurrentGoalQuestionIndex(0);
+        } else {
+          // 꼬리질문 없으면 약 서랍 기반 질문 확인
+          const medQ = findMedicationBasedQuestion();
+          if (medQ) {
+            setMedicationBasedQuestion(medQ);
+            setCurrentTurn(3);
+          } else {
+            setCurrentTurn(6);
+          }
+        }
+        break;
+      }
+      case 3:
+      case 4:
+      case 5: {
+        // 단일선택 → goalAnswers에 저장
+        const questionText = currentStepInfo.question;
+        appendQA(questionText, chip);
+
+        // 현재가 꼬리질문인지 약 서랍 기반 질문인지 구분
+        if (currentGoalQuestionIndex < followUpQuestions.length) {
+          // 꼬리질문 답변 저장
+          const questionKey = followUpQuestions[currentGoalQuestionIndex].question;
+          setGoalAnswers((prev) => ({ ...prev, [questionKey]: chip }));
+          advanceFromFollowUp();
+        } else {
+          // 약 서랍 기반 질문 답변
+          if (medicationBasedQuestion) {
+            setGoalAnswers((prev) => ({
+              ...prev,
+              [medicationBasedQuestion.question]: chip,
+            }));
+          }
+          setAskedMedicationQuestion(true);
+          setCurrentTurn(6);
+        }
+        break;
+      }
+      case 6: {
+        // 복용 편의 단일선택 → TURN 7 → 분석 시작
+        const questionText = currentStepInfo.question;
+        appendQA(questionText, chip);
+        setDosagePreference(chip);
+        setCurrentTurn(7);
+        break;
+      }
+      default:
+        break;
     }
   };
 
-  /* ── Handle "다음" for multi-select ── */
+  /* ── Handle "완료" for TURN 1 multi-select ── */
   const handleNext = () => {
-    if (intakeStep === 0 && healthGoals.length > 0) {
-      advanceFromStep(0, healthGoals);
-    } else if (intakeStep === 2) {
-      const allSymptoms = [...symptoms];
-      if (symptomText.trim()) {
-        allSymptoms.push(symptomText.trim());
-      }
-      if (allSymptoms.length > 0) {
-        setSymptoms(allSymptoms);
-        advanceFromStep(2, allSymptoms);
-      }
+    if (currentTurn === 1 && healthGoals.length > 0) {
+      const questionText = currentStepInfo.question;
+      appendQA(questionText, healthGoals.join(", "));
+      // 약 서랍 확인 턴으로
+      setCurrentTurn(2);
     }
   };
+
+  /* ── TURN 7 → 분석 시작 ── */
+  useEffect(() => {
+    if (currentTurn === 7 && phase === "intake") {
+      startAnalysis();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTurn]);
 
   /* ── Analysis ── */
-  const startAnalysis = async (
-    goals: string[],
-    life: string,
-    symp: string[]
-  ) => {
+  const startAnalysis = async () => {
     setPhase("analyzing");
 
     try {
@@ -253,9 +377,11 @@ export function useSupplementCoach() {
                 allergies: profile.allergies,
               }
             : null,
-          health_goals: goals,
-          lifestyle: life,
-          symptoms: symp,
+          health_goals: healthGoals,
+          goal_answers: goalAnswers,
+          dosage_preference: dosagePreference,
+          medication_drawer_confirmed: medicationDrawerConfirmed,
+          medication_drawer_changes: medicationDrawerChanges || undefined,
         }),
       });
 
@@ -276,7 +402,10 @@ export function useSupplementCoach() {
       setReport(null);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "분석 중 오류가 발생했어요. 잠시 후 다시 시도해주세요." },
+        {
+          role: "assistant",
+          content: "분석 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.",
+        },
       ]);
       setPhase("chat");
     }
@@ -297,8 +426,8 @@ export function useSupplementCoach() {
 
       const intakeContext = [
         `건강 목표: ${healthGoals.join(", ")}`,
-        `식습관: ${lifestyle}`,
-        `불편 증상: ${symptoms.join(", ")}`,
+        `꼬리질문 답변: ${JSON.stringify(goalAnswers)}`,
+        `복용 편의: ${dosagePreference}`,
       ].join("\n");
 
       if (report) {
@@ -365,7 +494,10 @@ export function useSupplementCoach() {
     try {
       const conversationSummary = messages
         .filter((m) => !m.isReport)
-        .map((m) => `${m.role === "user" ? "사용자" : "코디네이터"}: ${m.content}`)
+        .map(
+          (m) =>
+            `${m.role === "user" ? "사용자" : "코디네이터"}: ${m.content}`
+        )
         .join("\n");
 
       const res = await fetch("/api/food-drug-chat", {
@@ -394,8 +526,19 @@ export function useSupplementCoach() {
 ${report ? `[초기 분석 리포트]\n${report}\n\n` : ""}${conversationSummary}`,
             },
           ],
-          medications: medications.map((m) => ({ name: m.name, type: m.type, dosage: m.dosage })),
-          profile: profile ? { gender: profile.gender, birth_date: profile.birth_date, conditions: profile.conditions, allergies: profile.allergies } : null,
+          medications: medications.map((m) => ({
+            name: m.name,
+            type: m.type,
+            dosage: m.dosage,
+          })),
+          profile: profile
+            ? {
+                gender: profile.gender,
+                birth_date: profile.birth_date,
+                conditions: profile.conditions,
+                allergies: profile.allergies,
+              }
+            : null,
         }),
       });
       const data = await res.json();
@@ -410,7 +553,9 @@ ${report ? `[초기 분석 리포트]\n${report}\n\n` : ""}${conversationSummary
   /* ── 리포트 저장 ── */
   const saveReport = async () => {
     if (!savedReport) return;
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
 
     await supabase.from("ai_chats").insert({
@@ -429,19 +574,25 @@ ${report ? `[초기 분석 리포트]\n${report}\n\n` : ""}${conversationSummary
   /* ── 약사 검증 요청 ── */
   const requestPharmacistVerification = async () => {
     if (!savedReport) return;
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data } = await supabase.from("consultations").insert({
-      user_id: user.id,
-      type: "supplement",
-      content: "영양제 코디네이터 분석 결과 검증 요청",
-      health_snapshot: profile,
-      medications_snapshot: medications,
-      ai_report: savedReport,
-      ai_report_at: new Date().toISOString(),
-      status: "pending",
-    }).select("id").single();
+    const { data } = await supabase
+      .from("consultations")
+      .insert({
+        user_id: user.id,
+        type: "supplement",
+        content: "영양제 코디네이터 분석 결과 검증 요청",
+        health_snapshot: profile,
+        medications_snapshot: medications,
+        ai_report: savedReport,
+        ai_report_at: new Date().toISOString(),
+        status: "pending",
+      })
+      .select("id")
+      .single();
 
     if (data) {
       router.push(`/consultations/${data.id}`);
@@ -453,25 +604,62 @@ ${report ? `[초기 분석 리포트]\n${report}\n\n` : ""}${conversationSummary
     if (!text.trim()) return;
     const trimmed = text.trim();
 
-    if (intakeStep === 0) {
+    if (currentTurn === 1) {
+      // 직접 입력한 건강 목표
       setHealthGoals([trimmed]);
-      advanceFromStep(0, [trimmed]);
-    } else if (intakeStep === 1) {
-      setLifestyle(trimmed);
-      advanceFromStep(1, [trimmed]);
-    } else if (intakeStep === 2) {
-      setSymptoms([trimmed]);
-      advanceFromStep(2, [trimmed]);
+      appendQA(currentStepInfo.question, trimmed);
+      setCurrentTurn(2);
+    } else if (currentTurn === 2) {
+      // 약 서랍 변경 사항 텍스트 입력
+      setMedicationDrawerChanges(trimmed);
+      appendQA(currentStepInfo.question, trimmed);
+      if (followUpQuestions.length > 0) {
+        setCurrentTurn(3);
+        setCurrentGoalQuestionIndex(0);
+      } else {
+        const medQ = findMedicationBasedQuestion();
+        if (medQ) {
+          setMedicationBasedQuestion(medQ);
+          setCurrentTurn(3);
+        } else {
+          setCurrentTurn(6);
+        }
+      }
+    } else if (currentTurn >= 3 && currentTurn <= 5) {
+      // 꼬리질문에 직접 입력
+      const questionText = currentStepInfo.question;
+      appendQA(questionText, trimmed);
+
+      if (currentGoalQuestionIndex < followUpQuestions.length) {
+        const questionKey = followUpQuestions[currentGoalQuestionIndex].question;
+        setGoalAnswers((prev) => ({ ...prev, [questionKey]: trimmed }));
+        advanceFromFollowUp();
+      } else {
+        if (medicationBasedQuestion) {
+          setGoalAnswers((prev) => ({
+            ...prev,
+            [medicationBasedQuestion.question]: trimmed,
+          }));
+        }
+        setAskedMedicationQuestion(true);
+        setCurrentTurn(6);
+      }
+    } else if (currentTurn === 6) {
+      setDosagePreference(trimmed);
+      appendQA(currentStepInfo.question, trimmed);
+      setCurrentTurn(7);
     }
-    setSymptomText("");
+
     setInput("");
   };
+
+  const currentSelections = currentTurn === 1 ? healthGoals : [];
 
   const showInput = phase === "intake" || phase === "chat";
   const showNextButton =
     phase === "intake" &&
-    currentStep?.multiSelect &&
-    currentSelections.length > 0;
+    currentTurn === 1 &&
+    healthGoals.length > 0;
 
   return {
     /* refs */
@@ -479,7 +667,7 @@ ${report ? `[초기 분석 리포트]\n${report}\n\n` : ""}${conversationSummary
     inputRef,
     /* state */
     phase,
-    intakeStep,
+    currentTurn,
     messages,
     input,
     setInput,
@@ -493,11 +681,9 @@ ${report ? `[초기 분석 리포트]\n${report}\n\n` : ""}${conversationSummary
     reportSaved,
     setReportSaved,
     hasMedications,
-    symptomText,
-    setSymptomText,
     /* derived */
     currentSelections,
-    currentStep,
+    currentStepInfo,
     showInput,
     showNextButton,
     /* actions */

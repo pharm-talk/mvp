@@ -12,6 +12,7 @@ import {
   MEDICATION_TOPICS,
   SUPPLEMENT_GOALS,
 } from "@/types/consultation";
+import { useEmergencyDetector } from "@/hooks/useEmergencyDetector";
 
 /* ── 로컬 타입 (DB 스키마 매핑) ── */
 interface Profile {
@@ -39,10 +40,13 @@ export function useNewConsultation() {
   const searchParams = useSearchParams();
   const supabase = createClient();
 
+  const { checkEmergency } = useEmergencyDetector();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const albumInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
+
+  const [emergencyState, setEmergencyState] = useState<{level: "emergency" | "urgent"; message: string} | null>(null);
 
   const initialType: ConsultType =
     searchParams.get("type") === "supplement" ? "supplement" : "medication";
@@ -393,6 +397,16 @@ export function useNewConsultation() {
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
+
+    // 응급 감지: content에서 응급 키워드 체크
+    const emergency = checkEmergency(content);
+    if (emergency.level !== "none") {
+      setEmergencyState({ level: emergency.level as "emergency" | "urgent", message: emergency.message! });
+      if (emergency.level === "emergency") {
+        return; // 응급 상황이면 제출 차단
+      }
+    }
+
     setSubmitting(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -552,6 +566,9 @@ export function useNewConsultation() {
     // submit
     canSubmit,
     handleSubmit,
+    // emergency
+    emergencyState,
+    setEmergencyState,
     // util
     getAge,
   };

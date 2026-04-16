@@ -15,6 +15,8 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { Robot } from "@phosphor-icons/react";
+import { useEmergencyDetector } from "@/hooks/useEmergencyDetector";
+import { EmergencyBanner } from "@/components/features/emergency/EmergencyBanner";
 
 /* ─── Types ─── */
 
@@ -45,12 +47,12 @@ interface AiChat {
 }
 
 const QUICK_SUGGESTIONS = [
+  "영양제 추천해줘",
+  "이 약 부작용은?",
+  "복용 시간 알려줘",
   "술 마셔도 돼?",
   "커피 괜찮아?",
   "자몽 먹어도 돼?",
-  "우유랑 같이 먹어도 돼?",
-  "매운 음식은?",
-  "녹차 괜찮아?",
 ];
 
 /* ─── Sub-components ─── */
@@ -98,8 +100,10 @@ export default function ChatPage() {
   const supabase = createClient();
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { checkEmergency } = useEmergencyDetector();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [emergencyState, setEmergencyState] = useState<{level: "emergency" | "urgent"; message: string} | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
@@ -207,6 +211,19 @@ export default function ChatPage() {
   /* ─ Send message ─ */
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading) return;
+
+    const emergency = checkEmergency(text.trim());
+    if (emergency.level !== "none") {
+      setEmergencyState({ level: emergency.level as "emergency" | "urgent", message: emergency.message! });
+      if (emergency.level === "emergency") {
+        setMessages(prev => [...prev,
+          { role: "user", content: text.trim() },
+          { role: "assistant", content: emergency.message! },
+        ]);
+        setInput("");
+        return;
+      }
+    }
 
     const userMsg: ChatMessage = { role: "user", content: text.trim() };
     const newMessages = [...messages, userMsg];
@@ -362,7 +379,7 @@ export default function ChatPage() {
               <ArrowLeft className="w-5 h-5 text-gray-700" />
             </button>
             <h1 className="text-[0.9375rem] font-bold text-gray-900">
-              약-음식 상호작용
+              AI 약사 상담
             </h1>
             <div className="w-10" />
           </div>
@@ -509,7 +526,7 @@ export default function ChatPage() {
           </button>
           <div className="text-center">
             <h1 className="text-[0.9375rem] font-bold text-gray-900 leading-tight">
-              약-음식 상호작용
+              AI 약사 상담
             </h1>
             <p className="text-[0.625rem] text-gray-400 leading-tight mt-0.5">
               {medications.length}개의 약 기반
@@ -528,6 +545,15 @@ export default function ChatPage() {
           </button>
         </div>
       </header>
+
+      {/* Emergency Banner */}
+      {emergencyState && (
+        <EmergencyBanner
+          level={emergencyState.level}
+          message={emergencyState.message}
+          onClose={emergencyState.level === "urgent" ? () => setEmergencyState(null) : undefined}
+        />
+      )}
 
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto max-w-lg mx-auto w-full">
@@ -553,7 +579,7 @@ export default function ChatPage() {
                     className="text-[0.875rem] text-gray-400 mt-1.5 leading-relaxed"
                     style={{ wordBreak: "keep-all" }}
                   >
-                    어떤 음식이나 음료가 궁금하신가요?
+                    약, 영양제, 증상에 대해 무엇이든 물어보세요
                   </p>
                 </div>
               </div>
@@ -652,7 +678,7 @@ export default function ChatPage() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="음식이나 음료에 대해 물어보세요"
+              placeholder="약, 영양제, 증상에 대해 물어보세요"
               disabled={loading}
               className="flex-1 bg-transparent text-base text-gray-900 placeholder:text-gray-300 focus:outline-none disabled:opacity-50"
             />

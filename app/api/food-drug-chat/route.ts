@@ -1,4 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  SYSTEM_ROLE,
+  CORE_PRINCIPLES,
+  ABSOLUTE_PROHIBITIONS,
+  OUTPUT_FORMAT_RULES,
+  KNOWLEDGE_INTERACTIONS,
+  KNOWLEDGE_TIMING,
+  EMERGENCY_CRITERIA,
+  FEW_SHOT_CHAT,
+  buildProfileContext,
+} from "@/constants/ai-prompts";
 
 interface Message {
   role: "user" | "assistant";
@@ -28,67 +39,27 @@ interface RequestBody {
 function buildSystemPrompt(body: RequestBody): string {
   const { medications, profile, targetUserName } = body;
 
-  const medsText =
-    medications.length > 0
-      ? medications
-          .map(
-            (m) =>
-              `- ${m.name}${m.dosage ? ` (${m.dosage})` : ""}${m.type === "supplement" ? " [영양제]" : ""}`
-          )
-          .join("\n")
-      : "등록된 약 없음";
-
-  const profileText = profile
-    ? [
-        profile.gender === "male"
-          ? "남성"
-          : profile.gender === "female"
-            ? "여성"
-            : null,
-        profile.birth_date
-          ? `${new Date().getFullYear() - new Date(profile.birth_date).getFullYear()}세`
-          : null,
-        profile.conditions?.length > 0
-          ? `기저질환: ${profile.conditions.join(", ")}`
-          : null,
-        profile.allergies?.length > 0
-          ? `알레르기: ${profile.allergies.join(", ")}`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(", ")
-    : "건강정보 미등록";
-
   const targetContext = targetUserName
     ? `당신이 관리하고 있는 ${targetUserName}님의 약 정보를 기반으로 답변합니다.`
     : "사용자 본인의 약 정보를 기반으로 답변합니다.";
 
-  return `당신은 팜톡 앱의 약-음식 상호작용 전문 AI 약사 도우미입니다.
+  return `${SYSTEM_ROLE}
+${CORE_PRINCIPLES}
+${ABSOLUTE_PROHIBITIONS}
+
+## 현재 상담 모드: 약/영양제/증상 전체 상담 챗봇
 ${targetContext}
 
-## 역할
-- 현재 복용 중인 약과 음식/음료의 상호작용에 대해 알려주는 도우미
-- 위험한 상호작용은 명확하게 경고하되, 불필요한 공포 조장은 하지 않기
-- 친근하고 쉬운 말투, 반말 금지
-- 확실하지 않은 경우 "약사님께 직접 확인해보시는 게 가장 정확합니다" 같은 표현 사용
-- 의학적 진단이나 처방은 절대 하지 않기
-
 ## 사용자 정보
-- 건강정보: ${profileText}
-- 현재 복용 중인 약:
-${medsText}
+${buildProfileContext(profile, medications)}
 
-## 응답 규칙
-- 2~4문장으로 짧고 명확하게 답변
-- 이모지 사용하지 않기
-- 마크다운 문법(**, ##, \` 등) 사용하지 않기
-- 위험도를 알려줄 때: "주의가 필요해요", "괜찮아요", "피하시는 게 좋아요" 등 자연스러운 표현 사용
-- 관련 약이 복용 목록에 있으면 해당 약을 구체적으로 언급
-- 복용 목록에 없는 약에 대한 질문은 일반적인 정보로 답변
-- 최대한 자연스러운 한국어로
+${OUTPUT_FORMAT_RULES}
+${KNOWLEDGE_INTERACTIONS}
+${KNOWLEDGE_TIMING}
+${EMERGENCY_CRITERIA}
 
-또한 사용자가 영양제 추천을 요청하면, 현재 복용 중인 약과의 상호작용을 고려하여 적절한 영양제를 추천해주세요.
-과잉 복용 위험이 있는 성분이 있다면 반드시 경고해주세요.`;
+## 대화 예시
+${FEW_SHOT_CHAT}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -135,7 +106,7 @@ export async function POST(request: NextRequest) {
             { role: "system", content: systemPrompt },
             ...messages.map((m) => ({ role: m.role, content: m.content })),
           ],
-          max_tokens: 512,
+          max_tokens: 768,
           temperature: 0.7,
         }),
       }

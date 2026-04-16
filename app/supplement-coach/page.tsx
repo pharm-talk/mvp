@@ -20,7 +20,7 @@ export default function SupplementCoachPage() {
   if (coach.pageLoading) return <PageLoadingSkeleton />;
   if (!coach.hasMedications) return <EmptyMedications router={coach.router} />;
 
-  const { phase, currentStep, currentSelections, showInput } = coach;
+  const { phase, currentStepInfo, currentSelections, showInput } = coach;
 
   return (
     <div className="min-h-dvh bg-white flex flex-col">
@@ -71,17 +71,21 @@ export default function SupplementCoachPage() {
             )
           )}
 
-          {phase === "intake" && currentStep && (
-            <>
-              <AiMessage content={currentStep.question} />
-              <ChipSelector
-                chips={currentStep.chips}
-                selected={currentSelections}
-                multiSelect={currentStep.multiSelect}
-                onToggle={coach.handleChipToggle}
-              />
-            </>
-          )}
+          {phase === "intake" &&
+            currentStepInfo.question &&
+            coach.currentTurn <= 6 && (
+              <>
+                <AiMessage content={currentStepInfo.question} />
+                {currentStepInfo.chips.length > 0 && (
+                  <ChipSelector
+                    chips={currentStepInfo.chips}
+                    selected={currentSelections}
+                    multiSelect={currentStepInfo.multiSelect}
+                    onToggle={coach.handleChipToggle}
+                  />
+                )}
+              </>
+            )}
 
           {phase === "analyzing" && (
             <>
@@ -122,7 +126,7 @@ export default function SupplementCoachPage() {
       {showInput && (
         <div className="sticky bottom-0 bg-white/90 backdrop-blur-md border-t border-gray-100/40 flex-shrink-0 safe-bottom">
           <div className="max-w-lg mx-auto px-4 py-3">
-            {phase === "intake" && currentStep?.multiSelect && currentSelections.length > 0 ? (
+            {coach.showNextButton ? (
               <button
                 type="button"
                 onClick={coach.handleNext}
@@ -134,11 +138,10 @@ export default function SupplementCoachPage() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  const text = phase === "intake" ? (coach.symptomText || coach.input) : coach.input;
                   if (phase === "intake") {
-                    coach.handleIntakeTextInput(text);
+                    coach.handleIntakeTextInput(coach.input);
                   } else {
-                    coach.sendMessage(text);
+                    coach.sendMessage(coach.input);
                   }
                 }}
                 className="flex items-center gap-2"
@@ -146,12 +149,8 @@ export default function SupplementCoachPage() {
                 <input
                   ref={coach.inputRef}
                   type="text"
-                  value={phase === "intake" ? coach.symptomText : coach.input}
-                  onChange={(e) =>
-                    phase === "intake"
-                      ? coach.setSymptomText(e.target.value)
-                      : coach.setInput(e.target.value)
-                  }
+                  value={coach.input}
+                  onChange={(e) => coach.setInput(e.target.value)}
                   placeholder={
                     phase === "intake"
                       ? "직접 입력해도 돼요"
@@ -162,10 +161,7 @@ export default function SupplementCoachPage() {
                 />
                 <button
                   type="submit"
-                  disabled={
-                    coach.loading ||
-                    (phase === "intake" ? !coach.symptomText.trim() : !coach.input.trim())
-                  }
+                  disabled={coach.loading || !coach.input.trim()}
                   className="w-10 h-10 rounded-xl bg-brand/90 flex items-center justify-center active:bg-brand transition-all duration-200 disabled:opacity-30 flex-shrink-0"
                   aria-label="전송"
                 >
@@ -186,7 +182,10 @@ export default function SupplementCoachPage() {
         <ReportModal
           savedReport={coach.savedReport}
           reportSaved={coach.reportSaved}
-          onClose={() => { coach.setShowReportPreview(false); coach.setReportSaved(false); }}
+          onClose={() => {
+            coach.setShowReportPreview(false);
+            coach.setReportSaved(false);
+          }}
           onSave={coach.saveReport}
           onRequestVerification={coach.requestPharmacistVerification}
         />

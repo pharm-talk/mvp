@@ -3,6 +3,7 @@
 import { ArrowLeft, MessageCircle } from "lucide-react";
 import { ConsultProcessBanner } from "@/components/ui/AiDisclaimer";
 import { useNewConsultation } from "@/hooks/useNewConsultation";
+import { EmergencyBanner } from "@/components/features/emergency/EmergencyBanner";
 import ConsultTypeSelector from "@/components/features/consultation/ConsultTypeSelector";
 import HealthInfoSummary from "@/components/features/consultation/HealthInfoSummary";
 import ConsultGuideQuestions from "@/components/features/consultation/ConsultGuideQuestions";
@@ -41,6 +42,13 @@ export default function NewConsultationContent() {
       </header>
 
       <main className="max-w-lg mx-auto px-5 pt-5 pb-10 safe-bottom">
+        {c.emergencyState && (
+          <EmergencyBanner
+            level={c.emergencyState.level}
+            message={c.emergencyState.message}
+            onClose={c.emergencyState.level === "urgent" ? () => c.setEmergencyState(null) : undefined}
+          />
+        )}
         <ConsultProcessBanner />
         <div className="h-5" />
 
